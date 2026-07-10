@@ -1,0 +1,77 @@
+.page { padding-bottom: 180rpx; }
+
+/* 卡片标题 */
+.section-head {
+  display: flex; align-items: center; gap: 12rpx; margin-bottom: 20rpx;
+}
+.section-title { font-size: 30rpx; font-weight: 600; flex: 1; }
+
+/* 标注图 */
+.annotated-img { width: 100%; border-radius: 16rpx 16rpx 0 0; }
+
+/* 图例 */
+.legend-row {
+  display: flex; justify-content: center; gap: 24rpx;
+  padding: 20rpx 16rpx; margin-bottom: 20rpx;
+  background: #f8fafc; border-radius: 0 0 16rpx 16rpx;
+  flex-wrap: wrap;
+}
+.legend-item { text-align: center; }
+.legend-name { display: block; font-size: 24rpx; font-weight: 600; color: #374151; }
+.legend-desc { display: block; font-size: 20rpx; color: #9ca3af; margin-top: 2rpx; }
+.legend-dot { width: 14rpx; height: 14rpx; border-radius: 50%; margin: 0 auto 6rpx; }
+.img-empty { text-align: center; padding: 60rpx 0; }
+
+.scale-warn {
+  margin-top: 16rpx; padding: 16rpx 20rpx;
+  background: #fffbeb; border-radius: 12rpx;
+  font-size: 24rpx; color: #92400e;
+  display: flex; align-items: flex-start; gap: 10rpx; line-height: 1.5;
+}
+
+/* 数据网格 */
+.data-grid { display: flex; flex-wrap: wrap; margin-top: 20rpx; }
+.data-item {
+  width: 33.33%; text-align: center; padding: 20rpx 8rpx; box-sizing: border-box;
+  border-right: 1rpx solid #f1f5f9; border-bottom: 1rpx solid #f1f5f9;
+}
+.data-item:nth-child(3n) { border-right: none; }
+.data-item:nth-child(n+4) { border-bottom: none; }
+.data-value { font-size: 34rpx; font-weight: 700; color: #1e293b; display: block; }
+.data-label { font-size: 22rpx; color: #94a3b8; display: block; margin-top: 4rpx; }
+.data-explain { font-size: 20rpx; color: #cbd5e1; display: block; margin-top: 4rpx; line-height: 1.4; }
+
+/* 分析结论框 */
+.analysis-box {
+  margin-top: 20rpx; padding: 20rpx;
+  background: #f0f9ff; border-radius: 14rpx;
+  display: flex; align-items: flex-start; gap: 10rpx;
+}
+.analysis-box.side-box { background: #f5f3ff; }
+.analysis-text { font-size: 26rpx; color: #334155; line-height: 1.6; flex: 1; }
+
+/* 综合分析卡片 */
+.combined-card { background: linear-gradient(135deg, #faf5ff, #eff6ff); border: 1rpx solid #e9d5ff; }
+
+/* AI 内容 */
+.ai-block { margin-bottom: 20rpx; }
+.ai-explain { font-size: 28rpx; color: #334155; line-height: 1.7; }
+
+/* 建议 */
+.tips-block { margin-bottom: 16rpx; }
+.tips-label { font-size: 28rpx; font-weight: 500; display: flex; align-items: center; gap: 8rpx; margin-bottom: 12rpx; }
+.tip-item { font-size: 26rpx; color: #64748b; padding: 6rpx 0; display: block; }
+
+/* 下一步 */
+.next-box { margin-top: 20rpx; }
+
+/* 底部 */
+.bottom-bar {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  padding: 20rpx 30rpx 50rpx; background: #fff;
+  border-top: 1rpx solid #f1f5f9;
+}
+.disclaimer {
+  text-align: center; font-size: 22rpx; color: #cbd5e1;
+  display: block; margin-top: 16rpx;
+}

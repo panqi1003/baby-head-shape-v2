@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>宝宝头型分析</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap');
+        body { font-family: 'Noto Sans SC', system-ui, sans-serif; }
+        .severity-normal { background: #22c55e; }
+        .severity-mild { background: #eab308; }
+        .severity-moderate { background: #f97316; }
+        .severity-severe { background: #ef4444; }
+        .upload-zone { transition: all 0.2s ease; }
+        .upload-zone:hover, .upload-zone.dragover { border-color: #3b82f6; background: #eff6ff; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner { animation: spin 0.8s linear infinite; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+    <!-- Header -->
+    <header class="bg-white border-b shadow-sm">
+        <div class="max-w-3xl mx-auto px-4 py-4 flex items-center gap-3">
+            <div class="w-9 h-9 bg-blue-500 rounded-full flex items-center justify-center text-white text-lg">👶</div>
+            <div>
+                <h1 class="text-xl font-bold text-gray-800">宝宝头型分析</h1>
+                <p class="text-xs text-gray-400">AI 辅助 · 拍照自测 · 科学育儿</p>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-3xl mx-auto px-4 py-6 space-y-6">
+
+        <!-- Step 1: 拍照指南 -->
+        <section class="bg-white rounded-xl p-5 shadow-sm border">
+            <h2 class="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                <span class="w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-bold">1</span>
+                拍照指南
+            </h2>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm text-gray-500">
+                <div class="bg-blue-50 rounded-lg p-3 text-center">
+                    <div class="text-2xl mb-1">📐</div>
+                    <p class="font-medium text-gray-700">正上方俯拍</p>
+                    <p class="text-xs">手机在宝宝头顶正上方约30cm</p>
+                </div>
+                <div class="bg-blue-50 rounded-lg p-3 text-center">
+                    <div class="text-2xl mb-1">🪙</div>
+                    <p class="font-medium text-gray-700">放置参照物</p>
+                    <p class="text-xs">在头部旁边放一枚1元硬币 (25mm)</p>
+                </div>
+                <div class="bg-blue-50 rounded-lg p-3 text-center">
+                    <div class="text-2xl mb-1">👒</div>
+                    <p class="font-medium text-gray-700">建议戴薄帽</p>
+                    <p class="text-xs">减少头发干扰，提高检测精度</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Step 2: 上传照片 -->
+        <section class="bg-white rounded-xl p-5 shadow-sm border">
+            <h2 class="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                <span class="w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-bold">2</span>
+                上传照片
+            </h2>
+
+            <!-- 俯视图 -->
+            <p class="text-sm text-gray-500 mb-2 font-medium">俯视图 <span class="text-red-400">*</span> (头顶正上方)</p>
+            <div id="upload-zone-top" class="upload-zone border-2 border-dashed border-gray-300 rounded-xl p-6 text-center cursor-pointer mb-3">
+                <input type="file" id="file-input-top" accept="image/*" class="hidden">
+                <div id="upload-prompt-top">
+                    <div class="text-3xl mb-1">📷</div>
+                    <p class="text-gray-500 text-sm">点击上传俯视图</p>
+                </div>
+                <img id="preview-top" class="hidden max-h-48 mx-auto rounded-lg" alt="俯视预览">
+            </div>
+
+            <!-- 侧面图 -->
+            <p class="text-sm text-gray-500 mb-2 font-medium">侧面图 <span class="text-gray-400 text-xs">(可选)</span></p>
+            <div id="upload-zone-side" class="upload-zone border-2 border-dashed border-gray-300 rounded-xl p-6 text-center cursor-pointer mb-3">
+                <input type="file" id="file-input-side" accept="image/*" class="hidden">
+                <div id="upload-prompt-side">
+                    <div class="text-3xl mb-1">👤</div>
+                    <p class="text-gray-500 text-sm">点击上传侧面图 (后枕部扁平度分析)</p>
+                </div>
+                <img id="preview-side" class="hidden max-h-48 mx-auto rounded-lg" alt="侧面预览">
+            </div>
+
+            <!-- 月龄 + AI -->
+            <div class="flex flex-wrap items-center gap-3 text-sm mb-3">
+                <label class="flex items-center gap-1.5 text-gray-600">
+                    <span>宝宝月龄:</span>
+                    <input type="number" id="age-months" value="" min="0" max="36" step="1" placeholder="选填"
+                           class="w-16 px-2 py-1 border rounded text-center text-sm">
+                    <span class="text-gray-400">月</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" id="use-ai" class="rounded">
+                    <span class="text-gray-600">AI 智能分析</span>
+                    <span class="text-xs text-gray-400">(需 DeepSeek API Key)</span>
+                </label>
+            </div>
+
+            <!-- 模式切换 -->
+            <div class="mt-3 flex flex-wrap items-center gap-4 text-sm">
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" id="use-reference" checked
+                           class="sr-only peer" onchange="toggleMode()">
+                    <div class="w-10 h-5 bg-gray-300 peer-checked:bg-blue-500 rounded-full relative transition-colors
+                                after:content-[''] after:absolute after:top-0.5 after:left-0.5
+                                after:bg-white after:rounded-full after:h-4 after:w-4
+                                after:transition-all peer-checked:after:translate-x-5"></div>
+                    <span id="mode-label" class="text-gray-700 font-medium">参照物校准模式</span>
+                </label>
+            </div>
+
+            <!-- 参照物选项 (校准模式下显示) -->
+            <div id="ref-options" class="mt-2 flex flex-wrap items-center gap-3 text-sm">
+                <label class="flex items-center gap-1.5 text-gray-600">
+                    <span>参照物尺寸:</span>
+                    <input type="number" id="ref-mm" value="25" min="5" max="100" step="0.1"
+                           class="w-20 px-2 py-1 border rounded text-center text-sm">
+                    <span class="text-gray-400">mm</span>
+                </label>
+                <label class="flex items-center gap-1.5 text-gray-600">
+                    <input type="checkbox" id="auto-detect" checked class="rounded">
+                    <span>自动检测</span>
+                </label>
+            </div>
+
+            <!-- 无参照物提示 -->
+            <div id="no-ref-hint" class="hidden mt-2 bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-xs text-yellow-700">
+                ⚠️ 快速模式：使用婴儿平均头宽(95mm)估算比例，精度较低。建议放置硬币等参照物以获得准确测量。
+            </div>
+
+            <button id="analyze-btn"
+                    class="mt-4 w-full py-3 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white font-medium rounded-xl transition-colors">
+                开始分析
+            </button>
+        </section>
+
+        <!-- Loading -->
+        <div id="loading" class="hidden text-center py-8">
+            <div class="spinner w-10 h-10 border-4 border-blue-200 border-t-blue-500 rounded-full mx-auto mb-3"></div>
+            <p class="text-gray-500 text-sm">正在分析宝宝头型...</p>
+            <div id="loading-steps" class="mt-3 space-y-1"></div>
+        </div>
+
+        <!-- Error -->
+        <div id="error-box" class="hidden bg-red-50 border border-red-200 rounded-xl p-4 text-red-700 text-sm"></div>
+
+        <!-- Step 3: 分析结果 -->
+        <section id="results" class="hidden space-y-4">
+
+            <!-- 严重程度 -->
+            <div class="bg-white rounded-xl p-5 shadow-sm border">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="font-semibold text-gray-700">分析结果</h2>
+                    <span id="confidence-badge" class="text-xs text-gray-400"></span>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div id="severity-circle"
+                         class="w-20 h-20 rounded-full flex items-center justify-center text-white text-lg font-bold shadow-lg">
+                    </div>
+                    <div>
+                        <p id="severity-text" class="text-xl font-bold text-gray-800 mb-1"></p>
+                        <p id="severity-desc" class="text-sm text-gray-500"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 标注图片: 俯视图 -->
+            <div class="bg-white rounded-xl p-5 shadow-sm border">
+                <h2 class="font-semibold text-gray-700 mb-3">俯视图分析</h2>
+                <img id="annotated-img" class="w-full rounded-lg" alt="俯视分析标注图">
+                <p class="text-xs text-gray-400 mt-2">
+                    绿=轮廓 · 蓝=拟合椭圆 · 红=长轴(头长) · 黄=短轴(头宽)
+                </p>
+            </div>
+
+            <!-- 侧面图 -->
+            <div id="side-image-section" class="hidden bg-white rounded-xl p-5 shadow-sm border">
+                <h2 class="font-semibold text-gray-700 mb-3">侧面图分析</h2>
+                <img id="side-annotated-img" class="w-full rounded-lg" alt="侧面分析标注图">
+                <p id="side-flatness" class="text-sm text-gray-500 mt-2"></p>
+            </div>
+
+            <!-- AI 分析 -->
+            <div id="ai-section" class="hidden bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-5 shadow-sm border border-blue-200">
+                <h2 class="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                    <span class="text-lg">AI</span> DeepSeek 智能分析
+                </h2>
+                <div id="ai-content" class="text-sm text-gray-700 space-y-3"></div>
+            </div>
+
+            <!-- 测量数据卡片 -->
+            <div class="bg-white rounded-xl p-5 shadow-sm border">
+                <h2 class="font-semibold text-gray-700 mb-3">测量数据</h2>
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    <div class="bg-gray-50 rounded-lg p-3 text-center">
+                        <p class="text-2xl font-bold text-gray-800" id="val-ci">--</p>
+                        <p class="text-xs text-gray-400">头颅指数 (CI)</p>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-3 text-center">
+                        <p class="text-2xl font-bold text-gray-800" id="val-cvai">--</p>
+                        <p class="text-xs text-gray-400">不对称指数 (CVAI)</p>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-3 text-center">
+                        <p class="text-2xl font-bold text-gray-800" id="val-cva">--</p>
+                        <p class="text-xs text-gray-400">不对称值 (CVA)</p>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-3 text-center">
+                        <p class="text-lg font-bold text-gray-800" id="val-length">--</p>
+                        <p class="text-xs text-gray-400">头长 (前后径) mm</p>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-3 text-center">
+                        <p class="text-lg font-bold text-gray-800" id="val-width">--</p>
+                        <p class="text-xs text-gray-400">头宽 (左右径) mm</p>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-3 text-center">
+                        <p class="text-lg font-bold text-gray-800" id="val-circ">--</p>
+                        <p class="text-xs text-gray-400">头围 (估算) mm</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 指导建议 -->
+            <div class="bg-white rounded-xl p-5 shadow-sm border">
+                <h2 class="font-semibold text-gray-700 mb-3">指导建议</h2>
+                <p id="advice-summary" class="text-gray-700 mb-3 font-medium"></p>
+                <ul id="advice-actions" class="space-y-2"></ul>
+                <p id="advice-monitoring" class="text-sm text-blue-500 mt-4"></p>
+            </div>
+        </section>
+    </main>
+
+    <footer class="text-center py-6 text-xs text-gray-400">
+        ⚠️ 本工具仅供初步筛查参考，不能替代专业医疗诊断。如有疑虑请及时就医。
+    </footer>
+
+    <script>
+        const analyzeBtn = document.getElementById('analyze-btn');
+        let topFile = null, sideFile = null;
+
+        // 模式切换
+        function toggleMode() {
+            const useRef = document.getElementById('use-reference').checked;
+            document.getElementById('ref-options').classList.toggle('hidden', !useRef);
+            document.getElementById('no-ref-hint').classList.toggle('hidden', useRef);
+            document.getElementById('mode-label').textContent = useRef
+                ? '参照物校准模式' : '快速模式 (无参照物)';
+        }
+
+        // 通用上传区域绑定
+        function bindUpload(zoneId, inputId, promptId, previewId, setter) {
+            const zone = document.getElementById(zoneId);
+            const input = document.getElementById(inputId);
+            const prompt = document.getElementById(promptId);
+            const preview = document.getElementById(previewId);
+
+            zone.addEventListener('click', () => input.click());
+            zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('dragover'); });
+            zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+            zone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                zone.classList.remove('dragover');
+                handleFile(e.dataTransfer.files[0], preview, prompt, setter);
+            });
+            input.addEventListener('change', (e) => handleFile(e.target.files[0], preview, prompt, setter));
+        }
+
+        function handleFile(file, preview, prompt, setter) {
+            if (!file || !file.type.startsWith('image/')) return;
+            setter(file);
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                preview.src = e.target.result;
+                preview.classList.remove('hidden');
+                prompt.classList.add('hidden');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        bindUpload('upload-zone-top', 'file-input-top', 'upload-prompt-top', 'preview-top', (f) => topFile = f);
+        bindUpload('upload-zone-side', 'file-input-side', 'upload-prompt-side', 'preview-side', (f) => sideFile = f);
+
+        // 分析
+        analyzeBtn.addEventListener('click', async () => {
+            if (!topFile) { alert('请至少上传俯视图'); return; }
+
+            document.getElementById('results').classList.add('hidden');
+            document.getElementById('error-box').classList.add('hidden');
+            const loading = document.getElementById('loading');
+            loading.classList.remove('hidden');
+            analyzeBtn.disabled = true;
+
+            const formData = new FormData();
+            formData.append('top_image', topFile);
+            if (sideFile) formData.append('side_image', sideFile);
+            formData.append('reference_mm', document.getElementById('ref-mm').value);
+            formData.append('auto_detect', document.getElementById('auto-detect').checked);
+            formData.append('use_reference', document.getElementById('use-reference').checked);
+            const ageVal = document.getElementById('age-months').value;
+            if (ageVal) formData.append('age_months', ageVal);
+            formData.append('use_ai', document.getElementById('use-ai').checked);
+
+            try {
+                const resp = await fetch('/analyze', { method: 'POST', body: formData });
+                const data = await resp.json();
+                loading.classList.add('hidden');
+                analyzeBtn.disabled = false;
+
+                if (!data.success) {
+                    showError(data.error);
+                    return;
+                }
+
+                showResults(data);
+            } catch (err) {
+                loading.classList.add('hidden');
+                analyzeBtn.disabled = false;
+                showError('网络错误: ' + err.message);
+            }
+        });
+
+        function showError(msg) {
+            const box = document.getElementById('error-box');
+            box.textContent = '❌ ' + msg;
+            box.classList.remove('hidden');
+        }
+
+        function showResults(data) {
+            const m = data.measurements;
+            const adv = data.ai_analysis && !data.ai_analysis.error ? data.ai_analysis : data.fallback_advice;
+            const diag = adv.diagnosis || {};
+
+            // 标注图
+            document.getElementById('annotated-img').src = data.annotated_image;
+
+            // 侧面图
+            if (data.side_annotated_image) {
+                document.getElementById('side-annotated-img').src = data.side_annotated_image;
+                document.getElementById('side-image-section').classList.remove('hidden');
+                const sd = data.side_measurements;
+                if (sd) {
+                    document.getElementById('side-flatness').textContent =
+                        '后枕部: ' + sd.flatness_category + ' (扁平度 ' + (sd.posterior_flatness * 100).toFixed(0) + '%)';
+                }
+            } else {
+                document.getElementById('side-image-section').classList.add('hidden');
+            }
+
+            // AI 分析
+            if (data.has_ai && data.ai_analysis) {
+                const ai = data.ai_analysis;
+                document.getElementById('ai-section').classList.remove('hidden');
+                let html = '';
+                if (ai.explanation) html += '<p class="font-medium text-gray-800">' + ai.explanation + '</p>';
+                if (ai.head_shape_type) {
+                    html += '<div class="bg-white rounded-lg p-3"><p class="font-medium">' + (ai.summary || ai.head_shape_type) + '</p>';
+                    html += '<p class="text-sm text-blue-600 mt-1">' + (ai.next_step || '') + '</p></div>';
+                }
+                if (ai.daily_tips && ai.daily_tips.length > 0) {
+                    html += '<div class="bg-white rounded-lg p-3"><p class="font-medium">日常建议:</p>';
+                    ai.daily_tips.forEach(t => html += '<p class="text-sm text-gray-600">- ' + t + '</p>');
+                    html += '</div>';
+                }
+                if (ai.tummy_time_advice) {
+                    html += '<div class="bg-white rounded-lg p-3"><p class="font-medium">俯趴练习:</p><p class="text-sm text-gray-600">' + ai.tummy_time_advice + '</p></div>';
+                }
+                document.getElementById('ai-content').innerHTML = html;
+            } else {
+                document.getElementById('ai-section').classList.add('hidden');
+            }
+
+            // 严重程度
+            const sevMap = { '正常': 'severity-normal', '轻度': 'severity-mild', '中度': 'severity-moderate', '重度': 'severity-severe' };
+            const sevColor = sevMap[m.severity] || 'severity-normal';
+            const circle = document.getElementById('severity-circle');
+            circle.className = 'w-20 h-20 rounded-full flex items-center justify-center text-white text-lg font-bold shadow-lg ' + sevColor;
+            circle.textContent = m.severity;
+            const headType = adv.head_shape_type || (adv.diagnosis && adv.diagnosis.type) || '';
+            document.getElementById('severity-text').textContent = headType || m.severity;
+            document.getElementById('severity-desc').textContent = adv.explanation || adv.summary || '';
+            document.getElementById('confidence-badge').textContent = '';
+
+            // 测量数据
+            document.getElementById('val-ci').textContent = m.ci.toFixed(1);
+            document.getElementById('val-cvai').textContent = m.cvai.toFixed(1) + '%';
+            document.getElementById('val-cva').textContent = m.cva_mm.toFixed(1) + 'mm';
+            document.getElementById('val-length').textContent = m.head_length_mm.toFixed(1);
+            document.getElementById('val-width').textContent = m.head_width_mm.toFixed(1);
+            document.getElementById('val-circ').textContent = m.head_circumference_mm.toFixed(1);
+
+            // 建议
+            const actions = adv.daily_tips || (adv.intervention_plan && adv.intervention_plan.repositioning) || adv.actions || [];
+            document.getElementById('advice-summary').textContent = adv.explanation || adv.summary || '';
+            const actionsList = document.getElementById('advice-actions');
+            actionsList.innerHTML = actions.map(
+                a => '<li class="flex items-start gap-2 text-sm text-gray-600"><span class="text-gray-300 mt-0.5">-</span>' + a + '</li>'
+            ).join('');
+            document.getElementById('advice-monitoring').textContent = adv.next_step || '';
+
+            document.getElementById('results').classList.remove('hidden');
+            document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
+        }
+    </script>
+</body>
+</html>

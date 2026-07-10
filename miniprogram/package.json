@@ -1,0 +1,8 @@
+{
+  "name": "baby-head-shape",
+  "version": "1.0.0",
+  "description": "宝宝头型分析小程序",
+  "dependencies": {
+    "@vant/weapp": "^1.11.0"
+  }
+}

@@ -1,0 +1,122 @@
+<!-- 首页: 拍照上传 -->
+<view class="page">
+  <!-- 顶部 -->
+  <view class="header">
+    <van-icon name="smile-o" size="44rpx" color="#fff" />
+    <view class="header-text">
+      <text class="header-title">宝宝头型分析</text>
+      <text class="header-sub">拍照测量 · 科学关注头型发育</text>
+    </view>
+  </view>
+
+  <!-- 拍照指南 -->
+  <view class="card">
+    <view class="section-head">
+      <van-icon name="info-o" size="36rpx" color="#3b82f6" />
+      <text class="section-title">拍照指南</text>
+    </view>
+    <view class="guide-row">
+      <view class="guide-item">
+        <van-icon name="photograph" size="44rpx" color="#3b82f6" />
+        <text class="guide-label">正上方俯拍</text>
+        <text class="guide-desc">手机距头顶约30cm</text>
+      </view>
+      <view class="guide-item">
+        <van-icon name="gold-coin-o" size="44rpx" color="#f59e0b" />
+        <text class="guide-label">参照物(可选)</text>
+        <text class="guide-desc">放硬币校准比例</text>
+      </view>
+      <view class="guide-item">
+        <van-icon name="like-o" size="44rpx" color="#22c55e" />
+        <text class="guide-label">建议戴薄帽</text>
+        <text class="guide-desc">减少头发干扰</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 拍摄照片 -->
+  <view class="card">
+    <view class="section-head">
+      <van-icon name="photo-o" size="36rpx" color="#3b82f6" />
+      <text class="section-title">拍摄照片</text>
+    </view>
+
+    <!-- 俯视图 -->
+    <view class="photo-section">
+      <view class="photo-label-row">
+        <text class="photo-label">俯视图</text>
+        <van-tag type="danger" size="mini">必填</van-tag>
+      </view>
+      <view class="photo-box" bindtap="takeTopPhoto">
+        <image wx:if="{{topPhoto}}" src="{{topPhoto}}" class="photo-preview" mode="aspectFill" />
+        <view wx:else class="photo-placeholder">
+          <van-icon name="add-o" size="56rpx" color="#cbd5e1" />
+          <text class="photo-text">点击拍摄头顶俯视图</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 侧面图 -->
+    <view class="photo-section">
+      <view class="photo-label-row">
+        <text class="photo-label">侧面图</text>
+        <van-tag type="primary" size="mini" plain>选填</van-tag>
+      </view>
+      <view class="photo-box" bindtap="takeSidePhoto">
+        <image wx:if="{{sidePhoto}}" src="{{sidePhoto}}" class="photo-preview" mode="aspectFill" />
+        <view wx:else class="photo-placeholder">
+          <van-icon name="add-o" size="56rpx" color="#cbd5e1" />
+          <text class="photo-text">点击拍摄侧面图</text>
+          <text class="photo-hint">用于分析后枕部扁平度</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 月龄 -->
+    <view class="input-row">
+      <text class="input-label">宝宝月龄</text>
+      <input class="input-field" type="number" placeholder="选填" value="{{ageMonths}}" bindinput="onAgeInput" />
+      <text class="input-unit">个月</text>
+    </view>
+
+    <!-- 开关 -->
+    <view class="switch-row">
+      <view class="switch-item">
+        <text>参照物校准</text>
+        <van-switch
+          checked="{{useReference}}"
+          bind:change="toggleReference"
+          size="24px"
+          active-color="#3b82f6"
+          disabled="{{!hasReference}}"
+        />
+      </view>
+      <view class="switch-item">
+        <text>AI 分析</text>
+        <van-switch checked="{{useAI}}" bind:change="toggleAI" size="24px" active-color="#3b82f6" />
+      </view>
+    </view>
+
+    <view wx:if="{{refChecked && !hasReference}}" class="hint-box">
+      <van-icon name="warning-o" size="28rpx" color="#d97706" />
+      <text>照片中未检测到参照物，已自动使用估算比例。建议放入1元硬币后重新拍照。</text>
+    </view>
+    <view wx:elif="{{!useReference && hasReference}}" class="hint-box">
+      <van-icon name="info-o" size="28rpx" color="#d97706" />
+      <text>已关闭参照物校准，使用估算比例（精度较低）</text>
+    </view>
+  </view>
+
+  <!-- 分析按钮 -->
+  <view class="bottom-bar">
+    <van-button type="primary" block round bind:click="startAnalyze"
+      disabled="{{!topPhoto || analyzing}}" loading="{{analyzing}}"
+      loading-text="分析中...">
+      开始分析
+    </van-button>
+    <text class="disclaimer">本工具仅供家庭参考，不构成医疗建议</text>
+  </view>
+
+  <!-- toast 组件 -->
+  <van-toast id="van-toast" />
+</view>

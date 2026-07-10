@@ -1,0 +1,145 @@
+<!-- 分析结果 - 三段式 -->
+<view class="page">
+
+  <!-- ====== 1. 俯视图分析 ====== -->
+  <view class="card">
+    <view class="section-head">
+      <van-icon name="photo-o" size="36rpx" color="#3b82f6" />
+      <text class="section-title">俯视图分析</text>
+      <van-tag wx:if="{{topAnalysis.severity}}" type="{{topSeverityTag}}" size="mini">{{topAnalysis.severity}}</van-tag>
+    </view>
+
+    <image wx:if="{{topAnnotatedImg}}" src="{{topAnnotatedImg}}" class="annotated-img" mode="widthFix" />
+    <view wx:else class="img-empty"><van-loading size="30rpx" color="#3b82f6" /></view>
+
+    <!-- 图例 -->
+    <view class="legend-row">
+      <view class="legend-item">
+        <view class="legend-dot" style="background:#00c850"></view>
+        <text class="legend-name">绿线</text>
+        <text class="legend-desc">实际轮廓</text>
+      </view>
+      <view class="legend-item">
+        <view class="legend-dot" style="background:#0078dc"></view>
+        <text class="legend-name">蓝线</text>
+        <text class="legend-desc">拟合椭圆</text>
+      </view>
+      <view class="legend-item">
+        <view class="legend-dot" style="background:#dc3232"></view>
+        <text class="legend-name">红线</text>
+        <text class="legend-desc">头长</text>
+      </view>
+      <view class="legend-item">
+        <view class="legend-dot" style="background:#e6dc00"></view>
+        <text class="legend-name">黄线</text>
+        <text class="legend-desc">头宽</text>
+      </view>
+    </view>
+
+    <view wx:if="{{!hasReference}}" class="scale-warn">
+      <van-icon name="warning-o" size="28rpx" color="#d97706" />
+      <text>未检测到参照物，使用平均头宽估算，精度较低。建议拍照时放入1元硬币作为参照。</text>
+    </view>
+
+    <!-- 俯视测量数据 -->
+    <view class="data-grid">
+      <view class="data-item">
+        <text class="data-value">{{topCI}}</text>
+        <text class="data-label">头颅指数 CI</text>
+        <text class="data-explain">头宽÷头长×100<br/>正常范围 75-85</text>
+      </view>
+      <view class="data-item">
+        <text class="data-value">{{topCVAI}}%</text>
+        <text class="data-label">不对称指数</text>
+        <text class="data-explain">左右不对称程度<br/>越小越对称 &lt;3.5%</text>
+      </view>
+      <view class="data-item">
+        <text class="data-value">{{topCVA}}mm</text>
+        <text class="data-label">不对称值</text>
+        <text class="data-explain">对角线长度差<br/>越小越对称</text>
+      </view>
+      <view class="data-item">
+        <text class="data-value">{{topLength}}mm</text>
+        <text class="data-label">头长</text>
+        <text class="data-explain">前后距离<br/>眉心到后脑勺</text>
+      </view>
+      <view class="data-item">
+        <text class="data-value">{{topWidth}}mm</text>
+        <text class="data-label">头宽</text>
+        <text class="data-explain">左右距离<br/>两耳之间的宽度</text>
+      </view>
+      <view class="data-item">
+        <text class="data-value">{{topCirc}}mm</text>
+        <text class="data-label">头围</text>
+        <text class="data-explain">估算值<br/>参考头围曲线</text>
+      </view>
+    </view>
+
+    <!-- 俯视分析结论 -->
+    <view class="analysis-box">
+      <van-icon name="records" size="28rpx" color="#3b82f6" />
+      <text class="analysis-text">{{topAnalysis.summary}}</text>
+    </view>
+  </view>
+
+  <!-- ====== 2. 侧面图分析 ====== -->
+  <view wx:if="{{hasSide}}" class="card">
+    <view class="section-head">
+      <van-icon name="photo-o" size="36rpx" color="#6366f1" />
+      <text class="section-title">侧面图分析</text>
+      <van-tag wx:if="{{sideAnalysis.flatness_category}}" type="{{sideTagType}}" size="mini">{{sideAnalysis.flatness_category}}</van-tag>
+    </view>
+
+    <image wx:if="{{sideAnnotatedImg}}" src="{{sideAnnotatedImg}}" class="annotated-img" mode="widthFix" />
+    <view wx:else class="img-empty"><van-loading size="30rpx" color="#6366f1" /></view>
+
+    <!-- 侧面分析结论 -->
+    <view class="analysis-box side-box">
+      <van-icon name="records" size="28rpx" color="#6366f1" />
+      <text class="analysis-text">{{sideAnalysis.detail}}</text>
+    </view>
+  </view>
+
+  <!-- ====== 3. 综合分析 ====== -->
+  <view class="card combined-card">
+    <view class="section-head">
+      <van-icon name="gem-o" size="36rpx" color="#8b5cf6" />
+      <text class="section-title">综合分析</text>
+      <van-tag wx:if="{{hasAI}}" type="primary" size="mini">AI</van-tag>
+    </view>
+
+    <!-- AI 分析 -->
+    <view wx:if="{{hasAI && aiExplanation}}" class="ai-block">
+      <text class="ai-explain">{{aiExplanation}}</text>
+    </view>
+
+    <!-- 建议列表 -->
+    <view wx:if="{{tips.length > 0}}" class="tips-block">
+      <text class="tips-label">
+        <van-icon name="bullhorn-o" size="30rpx" color="#6366f1" /> 日常建议
+      </text>
+      <text wx:for="{{tips}}" wx:key="*this" class="tip-item">· {{item}}</text>
+    </view>
+
+    <!-- 俯趴 -->
+    <view wx:if="{{tummyTime}}" class="tip-item">
+      <van-icon name="clock-o" size="28rpx" color="#6366f1" /> {{tummyTime}}
+    </view>
+
+    <!-- 下一步 -->
+    <view wx:if="{{nextStep}}" class="next-box">
+      <van-tag type="primary" size="medium">{{nextStep}}</van-tag>
+    </view>
+
+    <!-- 无 AI 时的回退 -->
+    <view wx:if="{{!hasAI && fallbackText}}">
+      <text class="analysis-text">{{fallbackText}}</text>
+    </view>
+  </view>
+
+  <!-- 底部 -->
+  <view class="bottom-bar">
+    <van-button type="primary" block round bind:click="goBack" icon="replay">重新拍照</van-button>
+    <text class="disclaimer">本工具仅供家庭参考，不构成医疗建议</text>
+  </view>
+</view>

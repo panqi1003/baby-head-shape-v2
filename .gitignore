@@ -1,0 +1,11 @@
+.env
+__pycache__/
+*.pyc
+node_modules/
+miniprogram_npm/
+test_*.jpg
+resp.json
+minitest/
+mobile_sam.pt
+check.json
+project.private.config.json

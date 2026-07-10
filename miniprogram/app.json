@@ -1,0 +1,18 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/result/result"
+  ],
+  "window": {
+    "navigationBarTitleText": "宝宝头型分析",
+    "navigationBarBackgroundColor": "#3b82f6",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#f5f5f5"
+  },
+  "permission": {
+    "scope.camera": {
+      "desc": "需要使用相机拍摄宝宝头顶照片来进行头型分析"
+    }
+  },
+  "sitemapLocation": "sitemap.json"
+}
