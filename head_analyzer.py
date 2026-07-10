@@ -520,32 +520,106 @@ def measure_head_pca(contour: np.ndarray) -> Optional[dict]:
     if len(contour) < MIN_CONTOUR_POINTS:
         return None
 
-    # 1. PCA 找主方向
+    # 1. 用椭圆拟合确定主轴方向 (椭圆天然对称, 不受轮廓不对称影响)
     pts = contour.reshape(-1, 2).astype(np.float64)
     mean = np.mean(pts, axis=0)
     centered = pts - mean
+
+    # 先拟合椭圆拿方向
+    try:
+        hull = cv2.convexHull(contour)
+        ellipse = cv2.fitEllipse(hull)
+        ellipse_angle_rad = math.radians(ellipse[2])
+        v1_from_ellipse = np.array([math.cos(ellipse_angle_rad),
+                                     math.sin(ellipse_angle_rad)])
+    except Exception:
+        v1_from_ellipse = None
+
+    # PCA 找主方向 (用于跨度测量)
     cov = np.cov(centered.T)
     eigenvalues, eigenvectors = np.linalg.eigh(cov)
-
-    # 第一主成分 = 最大特征值对应的向量 = 头长方向
     idx = np.argsort(eigenvalues)[::-1]
-    v1 = eigenvectors[:, idx[0]]   # 头长方向
-    v2 = eigenvectors[:, idx[1]]   # 头宽方向 (垂直于 v1)
+    v1_pca = eigenvectors[:, idx[0]]
+    v2 = eigenvectors[:, idx[1]]
+
+    # 主轴方向 = 椭圆方向 (更稳定), 回退到 PCA
+    if v1_from_ellipse is not None:
+        v1 = v1_from_ellipse
+    else:
+        v1 = v1_pca
+
+    # 确保 v2 垂直于 v1
+    v2 = np.array([-v1[1], v1[0]])
 
     angle_deg = math.degrees(math.atan2(v1[1], v1[0]))
 
-    # 2. 沿 v1 投影 → 头长
-    proj_v1 = np.dot(centered, v1)
-    length_px = proj_v1.max() - proj_v1.min()
+    # 2. 确定前后方向 (两种方法综合)
+    #    方法A: 鼻尖朝上 → y 最小 = 前
+    #    方法B: 形状分析 → 窄尖的一端 = 前(面部), 宽圆的一端 = 后(枕部)
+    #    综合二者, 不一致时以形状为准
 
-    # 3. 沿 v2 投影 → 头宽 (在轮廓中点处更精确)
-    proj_v2 = np.dot(centered, v2)
-    # 取中心 60% 区域的最大宽度 (避免前后端收窄影响)
-    mid_mask = (proj_v1 > -length_px * 0.3) & (proj_v1 < length_px * 0.3)
-    if np.sum(mid_mask) > 10:
-        width_px = proj_v2[mid_mask].max() - proj_v2[mid_mask].min()
+    # 沿 v1 把轮廓分成前后两半
+    proj_on_v1 = np.dot(pts - mean, v1)
+    v1_min, v1_max = proj_on_v1.min(), proj_on_v1.max()
+    mid = (v1_min + v1_max) / 2
+    half1_mask = proj_on_v1 < mid  # v1 负方向的一半
+    half2_mask = proj_on_v1 >= mid  # v1 正方向的一半
+
+    if np.sum(half1_mask) < 5 or np.sum(half2_mask) < 5:
+        # 分半失败, 回退
+        ap_dir = v1
+        lr_dir = v2
     else:
-        width_px = proj_v2.max() - proj_v2.min()
+        # 形状法: 窄的那端 = 前面(鼻尖), 宽的那端 = 后面(后枕)
+        def half_width_at_end(mask):
+            pts_half = pts[mask]
+            if len(pts_half) < 3:
+                return 0
+            # 取最远端 30% 的点的宽度
+            proj = np.dot(pts_half - mean, v1)
+            cutoff = np.percentile(abs(proj), 70)
+            end_pts = pts_half[abs(proj) >= cutoff]
+            proj_v2_half = np.dot(end_pts - mean, v2)
+            return proj_v2_half.max() - proj_v2_half.min() if len(end_pts) >= 3 else 0
+
+        w1 = half_width_at_end(half1_mask)
+        w2 = half_width_at_end(half2_mask)
+
+        if w1 > 0 and w2 > 0:
+            # 窄的 = 前面
+            if w1 < w2:
+                front_end_is_v1_min = True
+            else:
+                front_end_is_v1_min = False
+        else:
+            # 回退到鼻尖朝上法
+            y1 = np.mean(pts[half1_mask, 1])
+            y2 = np.mean(pts[half2_mask, 1])
+            front_end_is_v1_min = (y1 < y2)  # 更靠上的 = 前面
+
+        # 构建前后方向
+        if front_end_is_v1_min:
+            ap_dir = -v1  # v1 负方向 = 前
+        else:
+            ap_dir = v1   # v1 正方向 = 前
+
+        lr_dir = np.array([-ap_dir[1], ap_dir[0]])
+
+    # 头长 = 沿前后方向的跨度
+    proj_ap = np.dot(centered, ap_dir)
+    length_px = proj_ap.max() - proj_ap.min()
+
+    # 头宽 = 沿左右方向的跨度 (取中间 60% 避免前后端收窄)
+    proj_lr = np.dot(centered, lr_dir)
+    mid_mask = (proj_ap > -length_px * 0.3) & (proj_ap < length_px * 0.3)
+    if np.sum(mid_mask) > 10:
+        width_px = proj_lr[mid_mask].max() - proj_lr[mid_mask].min()
+    else:
+        width_px = proj_lr.max() - proj_lr.min()
+
+    # 更新 v1/v2 为正确的方向 (用于后续可视化)
+    v1 = ap_dir
+    v2 = lr_dir
 
     # 4. CVAI: 30° 对角线跨度差异
     diag_angle = math.radians(30)
@@ -647,37 +721,6 @@ def detect_coin_by_circularity(image: np.ndarray) -> Optional[Tuple]:
 # ============================================================
 # 6. CVAI 计算
 # ============================================================
-
-def compute_cvai(contour: np.ndarray, cx: float, cy: float,
-                  angle_deg: float) -> Tuple[float, float]:
-    """
-    基于对角线跨度差异计算 CVAI。
-    以椭圆中线为基准，±30° 交叉对角线，比较对角线跨度差异。
-    返回 (cvai_%, cva_px)
-    """
-    angle_rad = math.radians(angle_deg)
-    diag_offset = math.radians(30)
-
-    def span_along(center, direction):
-        projs = []
-        for pt in contour:
-            vec = np.array([pt[0][0] - center[0], pt[0][1] - center[1]])
-            projs.append(abs(np.dot(vec, direction)))
-        return np.max(projs) if projs else 0
-
-    dir1 = np.array([math.cos(angle_rad + diag_offset), math.sin(angle_rad + diag_offset)])
-    dir2 = np.array([math.cos(angle_rad - diag_offset), math.sin(angle_rad - diag_offset)])
-
-    d1 = span_along((cx, cy), dir1)
-    d2 = span_along((cx, cy), dir2)
-
-    if min(d1, d2) < 1.0:
-        return 0.0, 0.0
-
-    cvai = abs(d1 - d2) / min(d1, d2) * 100
-    cva = abs(d1 - d2)
-    return cvai, cva
-
 
 # ============================================================
 # 7. 分级 & 建议
