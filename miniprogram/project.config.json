@@ -3,8 +3,8 @@
   "packOptions": {
     "ignore": [
       {
-        "type": "folder",
-        "value": "minitest/"
+        "value": "minitest/",
+        "type": "folder"
       }
     ],
     "include": []
@@ -50,7 +50,7 @@
   },
   "compileType": "miniprogram",
   "libVersion": "3.16.2",
-  "appid": "wxc57d486be9602b7a",
+  "appid": "wx1bddc3e852cb03fe",
   "projectname": "baby-head-shape",
   "condition": {},
   "editorSetting": {
