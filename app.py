@@ -117,8 +117,15 @@ async def analyze(
     # 俯视图独立分析 (规则引擎, 快)
     top_analysis = _top_analysis_text(top_data)
 
-    # 判断是否实际检测到了参照物
+    # 比例尺来源
     has_ref = any("参照物" in s for s in result.processing_steps)
+    has_guide = any("引导框" in s for s in result.processing_steps)
+    if has_ref:
+        scale_note = "参照物校准 · 精度较高"
+    elif has_guide:
+        scale_note = "引导框 + 年龄估算 · 精度中等"
+    else:
+        scale_note = "年龄估算 · 精度较低"
 
     return {
         "success": True,
@@ -127,12 +134,12 @@ async def analyze(
         "analysis": top_analysis,
         "annotated_image": f"data:image/jpeg;base64,{img_b64}",
         "has_reference": has_ref,
-        "scale_note": "已检测到参照物，测量精度较高" if has_ref else "未检测到参照物，使用平均头宽估算，精度较低",
+        "scale_note": scale_note,
     }
 
 
 @app.post("/analyze_side")
-async def analyze_side(image: UploadFile = File(...)):
+async def analyze_side(image: UploadFile = File(...), guide_frame: bool = Form(False)):
     """侧面图分析 — 返回测量数据 + 独立分析结论"""
     img = _read_img(image)
     if img is None:
@@ -140,7 +147,7 @@ async def analyze_side(image: UploadFile = File(...)):
 
     try:
         from side_analyzer import analyze_side_profile
-        result = analyze_side_profile(img)
+        result = analyze_side_profile(img, guide_frame=guide_frame)
         if not result:
             return {"success": False, "error": "侧面分析失败"}
 
@@ -153,13 +160,15 @@ async def analyze_side(image: UploadFile = File(...)):
             _, sb = cv2.imencode('.jpg', sa, [cv2.IMWRITE_JPEG_QUALITY, 85])
             side_b64 = base64.b64encode(sb).decode('utf-8')
 
-        # 侧面独立分析 (规则引擎)
         flatness = result.get('flatness_category', '')
         flatness_score = result.get('posterior_flatness', 0)
+        scale_method = result.get('scale_method', '')
+
         side_analysis = {
             "flatness_category": flatness,
             "summary": f"后枕部{flatness}",
             "detail": _side_analysis_text(flatness, flatness_score),
+            "scale_method": scale_method,
         }
 
         return {

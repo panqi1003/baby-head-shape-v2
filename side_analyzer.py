@@ -8,7 +8,7 @@ import math
 from typing import Optional, Dict
 
 
-def analyze_side_profile(image: np.ndarray) -> Optional[Dict]:
+def analyze_side_profile(image: np.ndarray, guide_frame: bool = False) -> Optional[Dict]:
     """
     分析侧面婴儿头部照片。
 
@@ -112,4 +112,5 @@ def analyze_side_profile(image: np.ndarray) -> Optional[Dict]:
         "flatness_category": category,
         "curvature_cv": round(curvature_cv, 3),
         "expected_radius": round(expected_radius, 1),
+        "scale_method": "引导框" if guide_frame else "默认估算",
     }

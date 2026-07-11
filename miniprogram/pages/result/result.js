@@ -13,6 +13,7 @@ Page({
     // 侧面图
     hasSide: false,
     sideAnnotatedImg: '',
+    sideScaleNote: '',
     sideAnalysis: {},
     sideTagType: 'primary',
 
@@ -61,6 +62,9 @@ Page({
       topAnnotatedImg: top.annotated_image || '',
       scaleNote: top.scale_note || '',
       hasReference: top.has_reference !== false,
+
+      // 侧面图比例尺
+      sideScaleNote: (sa && sa.scale_method) ? ('侧面: ' + sa.scale_method) : '',
       topCI: (m.ci || 0).toFixed(1),
       topCVAI: (m.cvai || 0).toFixed(1),
       topCVA: (m.cva_mm || 0).toFixed(1),

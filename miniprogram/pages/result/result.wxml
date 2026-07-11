@@ -12,6 +12,12 @@
     <image wx:if="{{topAnnotatedImg}}" src="{{topAnnotatedImg}}" class="annotated-img" mode="widthFix" />
     <view wx:else class="img-empty"><van-loading size="30rpx" color="#3b82f6" /></view>
 
+    <!-- 比例尺来源 -->
+    <view wx:if="{{scaleNote}}" class="scale-info">
+      <van-icon name="info-o" size="28rpx" color="#3b82f6" />
+      <text>{{scaleNote}}</text>
+    </view>
+
     <!-- 图例 -->
     <view class="legend-row">
       <view class="legend-item">
@@ -92,6 +98,11 @@
 
     <image wx:if="{{sideAnnotatedImg}}" src="{{sideAnnotatedImg}}" class="annotated-img" mode="widthFix" />
     <view wx:else class="img-empty"><van-loading size="30rpx" color="#6366f1" /></view>
+
+    <view wx:if="{{sideScaleNote}}" class="scale-info">
+      <van-icon name="info-o" size="28rpx" color="#6366f1" />
+      <text>{{sideScaleNote}}</text>
+    </view>
 
     <!-- 侧面分析结论 -->
     <view class="analysis-box side-box">

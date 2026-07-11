@@ -21,8 +21,8 @@
     <view class="guide-row">
       <view class="guide-item">
         <van-icon name="photograph" size="40rpx" color="#3b82f6" />
-        <text class="guide-label">正上方垂直拍摄</text>
-        <text class="guide-desc">手机距头顶约30cm</text>
+        <text class="guide-label">引导框对齐</text>
+        <text class="guide-desc">头型填满蓝色椭圆框后拍摄</text>
       </view>
       <view class="guide-item">
         <van-icon name="smile-o" size="40rpx" color="#3b82f6" />
@@ -30,6 +30,7 @@
         <text class="guide-desc">必须露出鼻尖，朝图片上方</text>
       </view>
     </view>
+    <view class="guide-tip">💡 用引导框对齐拍摄 = 距离固定 → 精度接近参照物校准</view>
 
     <!-- 侧面图要求 -->
     <view class="guide-subtitle">侧面图 (可选)</view>

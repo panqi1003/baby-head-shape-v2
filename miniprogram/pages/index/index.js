@@ -146,6 +146,7 @@ Page({
       url: app.globalData.apiBase + '/analyze_side',
       filePath: that.data.sidePhoto,
       name: 'image',
+      formData: { guide_frame: 'true' },
       success(res) {
         if (done) return; done = true; clearTimeout(timer)
         try {

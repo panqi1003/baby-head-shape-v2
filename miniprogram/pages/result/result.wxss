@@ -6,6 +6,12 @@
 }
 .section-title { font-size: 30rpx; font-weight: 600; flex: 1; }
 
+/* 比例尺来源 */
+.scale-info {
+  display: flex; align-items: center; gap: 10rpx;
+  padding: 14rpx 0; font-size: 24rpx; color: #3b82f6;
+}
+
 /* 标注图 */
 .annotated-img { width: 100%; border-radius: 16rpx 16rpx 0 0; }
 
