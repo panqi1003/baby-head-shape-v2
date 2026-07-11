@@ -5,11 +5,18 @@
   binderror="onCameraError"
   style="width:100%;height:100vh;"
 >
-  <!-- 引导框 -->
-  <cover-view class="guide-overlay">
-    <cover-view class="guide-ellipse"></cover-view>
+  <!-- 引导框 - 俯视图 -->
+  <cover-view wx:if="{{photoType === 'top'}}" class="guide-overlay">
+    <cover-view class="guide-ellipse-top"></cover-view>
     <cover-view class="guide-text">前后移动手机</cover-view>
     <cover-view class="guide-sub">让宝宝头顶填满椭圆框</cover-view>
+  </cover-view>
+
+  <!-- 引导框 - 侧面图 -->
+  <cover-view wx:if="{{photoType === 'side'}}" class="guide-overlay">
+    <cover-view class="guide-ellipse-side"></cover-view>
+    <cover-view class="guide-text">前后移动手机</cover-view>
+    <cover-view class="guide-sub">让宝宝头部侧面填满椭圆框</cover-view>
   </cover-view>
 
   <!-- 底部操作 -->

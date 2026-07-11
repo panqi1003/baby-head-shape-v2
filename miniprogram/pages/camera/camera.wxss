@@ -6,10 +6,17 @@
   pointer-events: none;
 }
 
-/* 椭圆框 */
-.guide-ellipse {
-  width: 400rpx; height: 480rpx;
+/* 俯视图引导框: 竖椭圆 (头长>头宽) */
+.guide-ellipse-top {
+  width: 380rpx; height: 460rpx;
   border: 4rpx dashed rgba(59, 130, 246, 0.6);
+  border-radius: 50%;
+}
+
+/* 侧面图引导框: 横椭圆 (头长方向水平) */
+.guide-ellipse-side {
+  width: 460rpx; height: 340rpx;
+  border: 4rpx dashed rgba(99, 102, 241, 0.6);
   border-radius: 50%;
 }
 
