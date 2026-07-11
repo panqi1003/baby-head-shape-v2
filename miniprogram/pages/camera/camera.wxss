@@ -6,31 +6,63 @@
   pointer-events: none;
 }
 
-/* 俯视图引导框: 竖椭圆 (头长>头宽) */
+/* 俯视图椭圆 (竖) */
 .guide-ellipse-top {
   width: 380rpx; height: 460rpx;
   border: 4rpx dashed rgba(59, 130, 246, 0.6);
   border-radius: 50%;
 }
 
-/* 侧面图引导框: 横椭圆 (头长方向水平) */
+/* 侧面图椭圆 (横) */
 .guide-ellipse-side {
   width: 460rpx; height: 340rpx;
   border: 4rpx dashed rgba(99, 102, 241, 0.6);
   border-radius: 50%;
 }
 
+/* 鼻尖方向箭头 — 在椭圆上方 */
+.nose-arrow {
+  position: absolute;
+  margin-top: -260rpx;
+  font-size: 40rpx;
+  color: rgba(59, 130, 246, 0.7);
+}
+.nose-label {
+  position: absolute;
+  margin-top: -218rpx;
+  font-size: 22rpx;
+  color: rgba(255, 255, 255, 0.8);
+  text-shadow: 0 1rpx 4rpx rgba(0,0,0,0.6);
+}
+
+/* 耳位参考点 — 在椭圆左侧 */
+.ear-marker {
+  position: absolute;
+  font-size: 24rpx;
+  color: rgba(99, 102, 241, 0.8);
+}
+.ear-left {
+  margin-left: -250rpx;
+}
+.ear-label {
+  position: absolute;
+  font-size: 20rpx;
+  color: rgba(255, 255, 255, 0.7);
+  text-shadow: 0 1rpx 4rpx rgba(0,0,0,0.6);
+}
+.ear-label-left {
+  margin-left: -250rpx;
+  margin-top: 28rpx;
+}
+
 /* 提示文字 */
 .guide-text {
-  margin-top: 32rpx;
-  font-size: 32rpx; color: rgba(255, 255, 255, 0.9);
-  font-weight: 600;
+  margin-top: 28rpx;
+  font-size: 28rpx; color: rgba(255, 255, 255, 0.9);
+  font-weight: 500;
   text-shadow: 0 2rpx 8rpx rgba(0,0,0,0.6);
-}
-.guide-sub {
-  margin-top: 8rpx;
-  font-size: 26rpx; color: rgba(255, 255, 255, 0.7);
-  text-shadow: 0 1rpx 4rpx rgba(0,0,0,0.6);
+  text-align: center;
+  padding: 0 40rpx;
 }
 
 /* 底部操作栏 */
