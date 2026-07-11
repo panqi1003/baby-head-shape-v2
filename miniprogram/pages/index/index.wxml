@@ -22,7 +22,7 @@
       <view class="guide-item">
         <van-icon name="photograph" size="40rpx" color="#3b82f6" />
         <text class="guide-label">正上方垂直拍摄</text>
-        <text class="guide-desc">手机距头顶约30cm</text>
+        <text class="guide-desc">前后移动对齐引导框</text>
       </view>
       <view class="guide-item">
         <van-icon name="smile-o" size="40rpx" color="#3b82f6" />
@@ -30,6 +30,7 @@
         <text class="guide-desc">必须露出鼻尖，朝图片上方</text>
       </view>
     </view>
+    <view class="guide-tip">💡 将头型对准蓝色虚线框，填满后拍摄 = 无需硬币也能获得较准测量</view>
 
     <!-- 侧面图要求 -->
     <view class="guide-subtitle">侧面图 (可选)</view>
@@ -77,8 +78,16 @@
       <view class="photo-box" bindtap="takeTopPhoto">
         <image wx:if="{{topPhoto}}" src="{{topPhoto}}" class="photo-preview" mode="aspectFill" />
         <view wx:else class="photo-placeholder">
-          <van-icon name="add-o" size="56rpx" color="#cbd5e1" />
-          <text class="photo-text">点击拍摄头顶俯视图</text>
+          <!-- 引导框 -->
+          <view class="guide-frame">
+            <view class="guide-ellipse"></view>
+            <text class="guide-text">前后移动手机</text>
+            <text class="guide-sub">让头型恰好填满椭圆框</text>
+          </view>
+        </view>
+        <!-- 已有照片时也显示引导框参考线 -->
+        <view wx:if="{{topPhoto}}" class="guide-frame-overlay">
+          <view class="guide-ellipse-overlay"></view>
         </view>
       </view>
     </view>
