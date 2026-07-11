@@ -1,0 +1,22 @@
+<!-- 实时相机 + 引导框拍照 -->
+<camera
+  device-position="back"
+  flash="off"
+  binderror="onCameraError"
+  style="width:100%;height:100vh;"
+>
+  <!-- 引导框 -->
+  <cover-view class="guide-overlay">
+    <cover-view class="guide-ellipse"></cover-view>
+    <cover-view class="guide-text">前后移动手机</cover-view>
+    <cover-view class="guide-sub">让宝宝头顶填满椭圆框</cover-view>
+  </cover-view>
+
+  <!-- 底部操作 -->
+  <cover-view class="bottom-bar">
+    <cover-view class="btn-capture" bindtap="takePhoto">
+      <cover-view class="btn-inner"></cover-view>
+    </cover-view>
+    <cover-view class="btn-cancel" bindtap="goBack">返回</cover-view>
+  </cover-view>
+</camera>

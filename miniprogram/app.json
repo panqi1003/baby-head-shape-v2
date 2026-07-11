@@ -1,6 +1,7 @@
 {
   "pages": [
     "pages/index/index",
+    "pages/camera/camera",
     "pages/result/result"
   ],
   "window": {

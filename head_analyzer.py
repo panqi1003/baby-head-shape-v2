@@ -856,6 +856,7 @@ def analyze_head_shape(
     auto_detect_reference: bool = True,
     use_reference: bool = True,
     age_months: Optional[int] = None,
+    guide_frame: bool = False,
 ) -> AnalysisResult:
     """
     婴儿头型分析主入口。
@@ -864,8 +865,9 @@ def analyze_head_shape(
       image: BGR 格式头顶俯拍照片
       reference_mm: 参照物实际尺寸(mm), 默认硬币 25mm
       auto_detect_reference: 是否自动检测硬币
-      use_reference: 是否使用参照物校准。False 时用婴儿平均头宽估算 (精度较低)
-      age_months: 宝宝月龄。无参照物时用于年龄自适应头宽估算
+      use_reference: 是否使用参照物校准。False 时用婴儿平均头宽估算
+      age_months: 宝宝月龄
+      guide_frame: 是否用了引导框拍照。True 时用画面比例估算距离
 
     返回:
       AnalysisResult (success, measurements, annotated_image, error_message)
@@ -951,14 +953,22 @@ def analyze_head_shape(
         scale_mm_per_px = reference_mm / (coin_r * 2)
         steps.append(f"检测到参照物 (半径:{coin_r}px, 比例:{scale_mm_per_px:.4f}mm/px)")
     else:
-        # 无参照物: PCA 直接给出头宽 → 估算比例
-        # 年龄自适应头宽估算
-        est_width = estimate_head_width_by_age(age_months)
-        scale_mm_per_px = est_width / width_px
-        if age_months:
-            steps.append(f"无参照物，使用{age_months}月龄估算头宽{est_width}mm")
+        # 无参照物时估算比例
+        if guide_frame:
+            # 引导框: 头填满 56% 画面 → 距离固定 → 从照片分辨率反推
+            # 420rpx 引导框 / 750rpx 屏宽 = 56%
+            head_px_est = w * 0.56  # 头在照片中约占 56% 宽度
+            est_width = estimate_head_width_by_age(age_months)
+            scale_mm_per_px = est_width / head_px_est
+            steps.append(f"引导框模式 (头占{head_px_est:.0f}px, 估算头宽{est_width}mm)")
         else:
-            steps.append(f"无参照物，使用默认头宽{est_width}mm (建议填写月龄提高精度)")
+            # 年龄自适应头宽估算 (用 PCA 测的头宽 px)
+            est_width = estimate_head_width_by_age(age_months)
+            scale_mm_per_px = est_width / width_px
+            if age_months:
+                steps.append(f"无参照物，使用{age_months}月龄估算头宽{est_width}mm")
+            else:
+                steps.append(f"无参照物，使用默认头宽{est_width}mm (建议填写月龄提高精度)")
 
     # Step 6: CI 计算 (基于 PCA 直接测量)
     hl_mm = length_px * scale_mm_per_px

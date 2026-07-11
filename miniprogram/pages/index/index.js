@@ -15,36 +15,26 @@ Page({
 
   takeTopPhoto() {
     this.setData({ photoType: 'top' })
-    this.openCamera()
+    wx.navigateTo({ url: '/pages/camera/camera?type=top' })
   },
 
   takeSidePhoto() {
     this.setData({ photoType: 'side' })
-    this.openCamera()
+    wx.navigateTo({ url: '/pages/camera/camera?type=side' })
   },
 
-  openCamera() {
-    wx.chooseMedia({
-      count: 1,
-      mediaType: ['image'],
-      sourceType: ['camera', 'album'],
-      sizeType: ['compressed'],
-      camera: 'back',
-      success: (res) => {
-        const path = res.tempFiles[0].tempFilePath
-        const key = this.data.photoType === 'top' ? 'topPhoto' : 'sidePhoto'
-        this.setData({ [key]: path })
-        // 俯视图选完后预检参照物
-        if (key === 'topPhoto') {
-          this.checkReference(path)
-        }
-      },
-      fail: (err) => {
-        if (!err.errMsg.includes('cancel')) {
-          wx.showToast({ title: '选择照片失败', icon: 'none' })
-        }
-      }
-    })
+  onShow() {
+    // 从相机页返回时接收照片
+    const app = getApp()
+    if (app.globalData._cameraTopPhoto) {
+      this.setData({ topPhoto: app.globalData._cameraTopPhoto })
+      this.checkReference(app.globalData._cameraTopPhoto)
+      app.globalData._cameraTopPhoto = null
+    }
+    if (app.globalData._cameraSidePhoto) {
+      this.setData({ sidePhoto: app.globalData._cameraSidePhoto })
+      app.globalData._cameraSidePhoto = null
+    }
   },
 
   onAgeInput(e) { this.setData({ ageMonths: e.detail.value }) },
@@ -100,6 +90,7 @@ Page({
     const formData = {
       use_reference: String(that.data.useReference),
       auto_detect: String(that.data.useReference),
+      guide_frame: 'true',  // 通过相机页拍摄，已用引导框对齐
     }
     const age = String(that.data.ageMonths || '').trim()
     if (age) formData.age_months = age

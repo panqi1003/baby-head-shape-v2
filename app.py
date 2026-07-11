@@ -89,6 +89,7 @@ async def analyze(
     auto_detect: bool = Form(True),
     use_reference: bool = Form(True),
     age_months: int = Form(None),
+    guide_frame: bool = Form(False),
 ):
     """俯视图分析 — 返回测量数据 + 独立分析结论"""
     img = _read_img(top_image)
@@ -97,7 +98,7 @@ async def analyze(
 
     result = analyze_head_shape(img, reference_mm=reference_mm,
         auto_detect_reference=auto_detect, use_reference=use_reference,
-        age_months=age_months)
+        age_months=age_months, guide_frame=guide_frame)
     if not result.success:
         return JSONResponse({"success": False, "error": result.error_message,
             "steps": result.processing_steps})
