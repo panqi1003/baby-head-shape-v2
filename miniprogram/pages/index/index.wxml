@@ -1,6 +1,5 @@
-<!-- 首页: 拍照上传 -->
+<!-- 首页 -->
 <view class="page">
-  <!-- 顶部 -->
   <view class="header">
     <van-icon name="smile-o" size="44rpx" color="#fff" />
     <view class="header-text">
@@ -16,48 +15,45 @@
       <text class="section-title">拍照指南</text>
     </view>
 
-    <!-- 俯视图要求 -->
     <view class="guide-subtitle">俯视图</view>
     <view class="guide-row">
       <view class="guide-item">
-        <van-icon name="photograph" size="40rpx" color="#3b82f6" />
+        <van-icon name="photograph" size="36rpx" color="#3b82f6" />
         <text class="guide-label">引导框对齐</text>
-        <text class="guide-desc">头型填满蓝色椭圆框后拍摄</text>
+        <text class="guide-desc">头型填满蓝色椭圆</text>
       </view>
       <view class="guide-item">
-        <van-icon name="smile-o" size="40rpx" color="#3b82f6" />
+        <van-icon name="smile-o" size="36rpx" color="#3b82f6" />
         <text class="guide-label">鼻尖朝上</text>
-        <text class="guide-desc">必须露出鼻尖，朝图片上方</text>
+        <text class="guide-desc">露出鼻尖，朝图片上方</text>
       </view>
     </view>
-    <view class="guide-tip">💡 用引导框对齐拍摄 = 距离固定 → 精度接近参照物校准</view>
 
-    <!-- 侧面图要求 -->
-    <view class="guide-subtitle">侧面图 (可选)</view>
+    <view class="guide-subtitle">侧面图</view>
     <view class="guide-row">
       <view class="guide-item">
-        <van-icon name="manager-o" size="40rpx" color="#6366f1" />
-        <text class="guide-label">正侧躺拍摄</text>
-        <text class="guide-desc">宝宝右侧或左侧躺</text>
+        <van-icon name="photograph" size="36rpx" color="#6366f1" />
+        <text class="guide-label">引导框对齐</text>
+        <text class="guide-desc">头型填满紫色椭圆</text>
       </view>
       <view class="guide-item">
-        <van-icon name="eye-o" size="40rpx" color="#6366f1" />
-        <text class="guide-label">露出鼻梁和耳朵</text>
-        <text class="guide-desc">完整侧面轮廓可见</text>
+        <van-icon name="eye-o" size="36rpx" color="#6366f1" />
+        <text class="guide-label">露出鼻梁+耳</text>
+        <text class="guide-desc">完整侧面轮廓</text>
       </view>
     </view>
 
-    <!-- 通用建议 -->
-    <view class="guide-row" style="margin-top:16rpx">
+    <view class="guide-subtitle">提升精度</view>
+    <view class="guide-row">
       <view class="guide-item">
-        <van-icon name="gold-coin-o" size="40rpx" color="#f59e0b" />
-        <text class="guide-label">放硬币(可选)</text>
-        <text class="guide-desc">1元硬币=25mm，提高精度</text>
+        <van-icon name="gold-coin-o" size="36rpx" color="#f59e0b" />
+        <text class="guide-label">放1元硬币</text>
+        <text class="guide-desc">在头旁边校准</text>
       </view>
       <view class="guide-item">
-        <van-icon name="like-o" size="40rpx" color="#22c55e" />
-        <text class="guide-label">建议戴薄帽</text>
-        <text class="guide-desc">减少头发干扰</text>
+        <van-icon name="like-o" size="36rpx" color="#22c55e" />
+        <text class="guide-label">戴薄帽(可选)</text>
+        <text class="guide-desc">浅色贴合头型</text>
       </view>
     </view>
   </view>
@@ -70,54 +66,56 @@
     </view>
 
     <!-- 俯视图 -->
-    <view class="photo-section">
-      <view class="photo-label-row">
-        <text class="photo-label">俯视图</text>
-        <van-tag type="danger" size="mini">必填</van-tag>
+    <view class="photo-label-row">
+      <text class="photo-label">俯视图</text>
+      <van-tag type="danger" size="mini">必填</van-tag>
+    </view>
+    <view class="photo-box" bindtap="takeTopPhoto">
+      <image wx:if="{{topPhoto}}" src="{{topPhoto}}" class="photo-preview" mode="aspectFill" />
+      <view wx:else class="photo-placeholder">
+        <van-icon name="add-o" size="48rpx" color="#cbd5e1" />
+        <text class="photo-text">点击拍摄</text>
       </view>
-      <view class="photo-box" bindtap="takeTopPhoto">
-        <image wx:if="{{topPhoto}}" src="{{topPhoto}}" class="photo-preview" mode="aspectFill" />
-        <view wx:else class="photo-placeholder">
-          <van-icon name="add-o" size="56rpx" color="#cbd5e1" />
-          <text class="photo-text">点击拍摄头顶俯视图</text>
+    </view>
+
+    <!-- 左右侧面图并排 -->
+    <view class="photo-label-row" style="margin-top:24rpx">
+      <text class="photo-label">侧面图</text>
+      <van-tag type="primary" size="mini" plain>可选</van-tag>
+    </view>
+    <view class="side-row">
+      <view class="side-half">
+        <text class="side-mini-label">左侧</text>
+        <view class="photo-box-small" bindtap="takeLeftSidePhoto">
+          <image wx:if="{{leftSidePhoto}}" src="{{leftSidePhoto}}" class="photo-preview" mode="aspectFill" />
+          <view wx:else class="photo-placeholder-small">
+            <van-icon name="add-o" size="36rpx" color="#cbd5e1" />
+          </view>
+        </view>
+      </view>
+      <view class="side-half">
+        <text class="side-mini-label">右侧</text>
+        <view class="photo-box-small" bindtap="takeRightSidePhoto">
+          <image wx:if="{{rightSidePhoto}}" src="{{rightSidePhoto}}" class="photo-preview" mode="aspectFill" />
+          <view wx:else class="photo-placeholder-small">
+            <van-icon name="add-o" size="36rpx" color="#cbd5e1" />
+          </view>
         </view>
       </view>
     </view>
 
-    <!-- 侧面图 -->
-    <view class="photo-section">
-      <view class="photo-label-row">
-        <text class="photo-label">侧面图</text>
-        <van-tag type="primary" size="mini" plain>选填</van-tag>
-      </view>
-      <view class="photo-box" bindtap="takeSidePhoto">
-        <image wx:if="{{sidePhoto}}" src="{{sidePhoto}}" class="photo-preview" mode="aspectFill" />
-        <view wx:else class="photo-placeholder">
-          <van-icon name="add-o" size="56rpx" color="#cbd5e1" />
-          <text class="photo-text">点击拍摄侧面图</text>
-          <text class="photo-hint">用于分析后枕部扁平度</text>
-        </view>
-      </view>
-    </view>
-
-    <!-- 月龄 -->
+    <!-- 月龄 + 开关 -->
     <view class="input-row">
       <text class="input-label">宝宝月龄</text>
       <input class="input-field" type="number" placeholder="选填" value="{{ageMonths}}" bindinput="onAgeInput" />
       <text class="input-unit">个月</text>
     </view>
 
-    <!-- 开关 -->
     <view class="switch-row">
       <view class="switch-item">
         <text>参照物校准</text>
-        <van-switch
-          checked="{{useReference}}"
-          bind:change="toggleReference"
-          size="24px"
-          active-color="#3b82f6"
-          disabled="{{!hasReference}}"
-        />
+        <van-switch checked="{{useReference}}" bind:change="toggleReference" size="24px"
+          active-color="#3b82f6" disabled="{{!hasReference}}" />
       </view>
       <view class="switch-item">
         <text>AI 分析</text>
@@ -129,22 +127,16 @@
       <van-icon name="warning-o" size="28rpx" color="#d97706" />
       <text>照片中未检测到参照物，已自动使用估算比例。建议放入1元硬币后重新拍照。</text>
     </view>
-    <view wx:elif="{{!useReference && hasReference}}" class="hint-box">
-      <van-icon name="info-o" size="28rpx" color="#d97706" />
-      <text>已关闭参照物校准，使用估算比例（精度较低）</text>
-    </view>
   </view>
 
   <!-- 分析按钮 -->
   <view class="bottom-bar">
     <van-button type="primary" block round bind:click="startAnalyze"
-      disabled="{{!topPhoto || analyzing}}" loading="{{analyzing}}"
-      loading-text="分析中...">
+      disabled="{{!topPhoto || analyzing}}" loading="{{analyzing}}" loading-text="分析中...">
       开始分析
     </van-button>
     <text class="disclaimer">本工具仅供家庭参考，不构成医疗建议</text>
   </view>
 
-  <!-- toast 组件 -->
   <van-toast id="van-toast" />
 </view>

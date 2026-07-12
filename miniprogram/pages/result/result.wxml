@@ -88,26 +88,31 @@
     </view>
   </view>
 
-  <!-- ====== 2. 侧面图分析 ====== -->
-  <view wx:if="{{hasSide}}" class="card">
+  <!-- ====== 2. 左侧面图分析 ====== -->
+  <view wx:if="{{hasLeftSide}}" class="card">
     <view class="section-head">
       <van-icon name="photo-o" size="36rpx" color="#6366f1" />
-      <text class="section-title">侧面图分析</text>
-      <van-tag wx:if="{{sideAnalysis.flatness_category}}" type="{{sideTagType}}" size="mini">{{sideAnalysis.flatness_category}}</van-tag>
+      <text class="section-title">左侧面分析</text>
+      <van-tag wx:if="{{leftAnalysis.flatness_category}}" type="{{leftTagType}}" size="mini">{{leftAnalysis.flatness_category}}</van-tag>
     </view>
-
-    <image wx:if="{{sideAnnotatedImg}}" src="{{sideAnnotatedImg}}" class="annotated-img" mode="widthFix" />
-    <view wx:else class="img-empty"><van-loading size="30rpx" color="#6366f1" /></view>
-
-    <view wx:if="{{sideScaleNote}}" class="scale-info">
-      <van-icon name="info-o" size="28rpx" color="#6366f1" />
-      <text>{{sideScaleNote}}</text>
-    </view>
-
-    <!-- 侧面分析结论 -->
+    <image wx:if="{{leftAnnotatedImg}}" src="{{leftAnnotatedImg}}" class="annotated-img" mode="widthFix" />
     <view class="analysis-box side-box">
       <van-icon name="records" size="28rpx" color="#6366f1" />
-      <text class="analysis-text">{{sideAnalysis.detail}}</text>
+      <text class="analysis-text">{{leftAnalysis.detail}}</text>
+    </view>
+  </view>
+
+  <!-- ====== 3. 右侧面图分析 ====== -->
+  <view wx:if="{{hasRightSide}}" class="card">
+    <view class="section-head">
+      <van-icon name="photo-o" size="36rpx" color="#6366f1" />
+      <text class="section-title">右侧面分析</text>
+      <van-tag wx:if="{{rightAnalysis.flatness_category}}" type="{{rightTagType}}" size="mini">{{rightAnalysis.flatness_category}}</van-tag>
+    </view>
+    <image wx:if="{{rightAnnotatedImg}}" src="{{rightAnnotatedImg}}" class="annotated-img" mode="widthFix" />
+    <view class="analysis-box side-box">
+      <van-icon name="records" size="28rpx" color="#6366f1" />
+      <text class="analysis-text">{{rightAnalysis.detail}}</text>
     </view>
   </view>
 

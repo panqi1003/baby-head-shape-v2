@@ -5,11 +5,14 @@ Page({
     photoType: 'top'  // 'top' or 'side'
   },
 
+  data: {
+    photoType: 'top',
+    side: ''  // left/right
+  },
+
   onLoad(options) {
-    // 接收拍照类型参数
-    if (options.type) {
-      this.setData({ photoType: options.type })
-    }
+    if (options.type) this.setData({ photoType: options.type })
+    if (options.side) this.setData({ side: options.side })
   },
 
   takePhoto() {
@@ -18,11 +21,11 @@ Page({
     ctx.takePhoto({
       quality: 'high',
       success(res) {
-        // 把照片路径存到全局数据
         if (that.data.photoType === 'top') {
           app.globalData._cameraTopPhoto = res.tempImagePath
         } else {
           app.globalData._cameraSidePhoto = res.tempImagePath
+          app.globalData._cameraSideWhich = that.data.side
         }
         wx.navigateBack()
       },

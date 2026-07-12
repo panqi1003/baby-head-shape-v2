@@ -1,57 +1,65 @@
-.page { padding-bottom: 180rpx; }
+.page { padding-bottom: 200rpx; }
 
 /* 顶部 */
 .header {
   background: linear-gradient(135deg, #3b82f6, #6366f1);
-  padding: 40rpx 30rpx;
-  display: flex; align-items: center; gap: 20rpx;
+  padding: 40rpx 30rpx; display: flex; align-items: center; gap: 20rpx;
 }
 .header-title { font-size: 36rpx; font-weight: 700; color: #fff; display: block; }
 .header-sub  { font-size: 24rpx; color: rgba(255,255,255,0.7); display: block; margin-top: 4rpx; }
 
-/* 卡片标题 */
-.section-head {
-  display: flex; align-items: center; gap: 12rpx; margin-bottom: 24rpx;
-}
+/* 标题 */
+.section-head { display: flex; align-items: center; gap: 12rpx; margin-bottom: 20rpx; }
 .section-title { font-size: 30rpx; font-weight: 600; }
 
 /* 指南 */
-.guide-subtitle {
-  font-size: 26rpx; font-weight: 600; color: #475569;
-  margin: 20rpx 0 12rpx;
-  padding-left: 4rpx;
-}
+.guide-subtitle { font-size: 26rpx; font-weight: 600; color: #475569; margin: 18rpx 0 10rpx; }
 .guide-row { display: flex; gap: 16rpx; }
 .guide-item {
-  flex: 1; text-align: center;
-  background: #f8fafc; border-radius: 16rpx; padding: 24rpx 8rpx;
-  display: flex; flex-direction: column; align-items: center; gap: 8rpx;
+  flex: 1; text-align: center; background: #f8fafc;
+  border-radius: 14rpx; padding: 18rpx 8rpx;
+  display: flex; flex-direction: column; align-items: center; gap: 6rpx;
 }
 .guide-label { font-size: 24rpx; font-weight: 500; color: #334155; }
 .guide-desc  { font-size: 20rpx; color: #94a3b8; }
 
-/* 照片区 */
-.photo-section { margin-bottom: 28rpx; }
+/* 照片标签 */
 .photo-label-row { display: flex; align-items: center; gap: 12rpx; margin-bottom: 12rpx; }
 .photo-label { font-size: 28rpx; font-weight: 500; }
+
+/* 俯视照片框 */
 .photo-box {
-  width: 100%; height: 340rpx;
-  border: 2rpx dashed #cbd5e1; border-radius: 20rpx;
+  width: 100%; height: 320rpx;
+  border: 2rpx dashed #cbd5e1; border-radius: 18rpx;
   overflow: hidden; background: #fafafa;
 }
 .photo-placeholder {
   width: 100%; height: 100%;
   display: flex; flex-direction: column;
-  align-items: center; justify-content: center; gap: 12rpx;
+  align-items: center; justify-content: center; gap: 10rpx;
 }
 .photo-text { color: #94a3b8; font-size: 28rpx; }
-.photo-hint { font-size: 22rpx; color: #cbd5e1; }
 .photo-preview { width: 100%; height: 100%; }
 
-/* 月龄输入 */
+/* 侧面图并排 */
+.side-row { display: flex; gap: 16rpx; }
+.side-half { flex: 1; }
+.side-mini-label { font-size: 22rpx; color: #94a3b8; display: block; margin-bottom: 8rpx; text-align: center; }
+.photo-box-small {
+  width: 100%; height: 200rpx;
+  border: 2rpx dashed #cbd5e1; border-radius: 16rpx;
+  overflow: hidden; background: #fafafa;
+}
+.photo-placeholder-small {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* 输入 */
 .input-row {
   display: flex; align-items: center; gap: 16rpx;
-  padding: 24rpx 0; border-top: 1rpx solid #f1f5f9;
+  padding: 24rpx 0; margin-top: 12rpx;
+  border-top: 1rpx solid #f1f5f9;
 }
 .input-label { font-size: 28rpx; font-weight: 500; }
 .input-field {
@@ -62,13 +70,9 @@
 .input-unit { color: #94a3b8; font-size: 24rpx; }
 
 /* 开关 */
-.switch-row {
-  display: flex; justify-content: space-between;
-  padding: 24rpx 0; border-top: 1rpx solid #f1f5f9;
-}
+.switch-row { display: flex; justify-content: space-between; padding: 20rpx 0; border-top: 1rpx solid #f1f5f9; }
 .switch-item { display: flex; align-items: center; gap: 12rpx; font-size: 28rpx; }
 
-/* 提示 */
 .hint-box {
   background: #fffbeb; border-radius: 12rpx;
   padding: 16rpx 20rpx; font-size: 24rpx; color: #92400e;
@@ -78,10 +82,6 @@
 /* 底部 */
 .bottom-bar {
   position: fixed; bottom: 0; left: 0; right: 0;
-  padding: 20rpx 30rpx 50rpx;
-  background: #fff; border-top: 1rpx solid #f1f5f9;
+  padding: 20rpx 30rpx 50rpx; background: #fff; border-top: 1rpx solid #f1f5f9;
 }
-.disclaimer {
-  text-align: center; font-size: 22rpx; color: #cbd5e1;
-  display: block; margin-top: 16rpx;
-}
+.disclaimer { text-align: center; font-size: 22rpx; color: #cbd5e1; display: block; margin-top: 16rpx; }
