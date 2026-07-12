@@ -1,28 +1,16 @@
-<!-- 实时相机 + 引导框拍照 -->
 <camera device-position="back" flash="off" binderror="onCameraError" style="width:100%;height:100vh;">
 
-  <!-- 俯视图引导 -->
-  <cover-view wx:if="{{photoType === 'top'}}" class="guide-overlay">
-    <!-- 椭圆框 -->
-    <cover-view class="guide-ellipse-top"></cover-view>
-    <!-- 鼻尖方向箭头 -->
-    <cover-view class="nose-arrow">▲</cover-view>
-    <cover-view class="nose-label">鼻尖方向</cover-view>
-    <!-- 提示 -->
-    <cover-view class="guide-text">前后移动手机，让头型填满椭圆框</cover-view>
+  <!-- 引导框 -->
+  <cover-view class="guide-overlay">
+    <!-- 俯视图: 竖椭圆 (头长>头宽) -->
+    <cover-view wx:if="{{photoType === 'top'}}" class="guide-ellipse-top"></cover-view>
+    <!-- 侧面图: 横椭圆 (前后>上下) -->
+    <cover-view wx:if="{{photoType === 'side'}}" class="guide-ellipse-side"></cover-view>
+
+    <cover-view class="guide-text">前后移动手机</cover-view>
+    <cover-view class="guide-sub">让宝宝头部填满椭圆框</cover-view>
   </cover-view>
 
-  <!-- 侧面图引导 -->
-  <cover-view wx:if="{{photoType === 'side'}}" class="guide-overlay">
-    <!-- 横椭圆 -->
-    <cover-view class="guide-ellipse-side"></cover-view>
-    <!-- 耳位参考点 -->
-    <cover-view class="ear-marker ear-left">●</cover-view>
-    <cover-view class="ear-label ear-label-left">耳</cover-view>
-    <cover-view class="guide-text">头型填满椭圆框，耳朵在圆点位置</cover-view>
-  </cover-view>
-
-  <!-- 底部操作 -->
   <cover-view class="bottom-bar">
     <cover-view class="btn-capture" bindtap="takePhoto">
       <cover-view class="btn-inner"></cover-view>
