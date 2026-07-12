@@ -12,9 +12,9 @@
   border-radius: 50%;
 }
 
-/* 侧面图: 横椭圆 (头长方向水平) */
+/* 侧面图: 竖椭圆 (头顶在上，下巴在下) */
 .guide-ellipse-side {
-  width: 480rpx; height: 340rpx;
+  width: 360rpx; height: 440rpx;
   border: 4rpx dashed rgba(99, 102, 241, 0.5);
   border-radius: 50%;
 }
