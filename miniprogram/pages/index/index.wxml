@@ -85,7 +85,7 @@
     </view>
     <view class="side-row">
       <view class="side-half">
-        <text class="side-mini-label">左侧</text>
+        <text class="side-mini-label">面朝左</text>
         <view class="photo-box-small" bindtap="takeLeftSidePhoto">
           <image wx:if="{{leftSidePhoto}}" src="{{leftSidePhoto}}" class="photo-preview" mode="aspectFill" />
           <view wx:else class="photo-placeholder-small">
@@ -94,7 +94,7 @@
         </view>
       </view>
       <view class="side-half">
-        <text class="side-mini-label">右侧</text>
+        <text class="side-mini-label">面朝右</text>
         <view class="photo-box-small" bindtap="takeRightSidePhoto">
           <image wx:if="{{rightSidePhoto}}" src="{{rightSidePhoto}}" class="photo-preview" mode="aspectFill" />
           <view wx:else class="photo-placeholder-small">

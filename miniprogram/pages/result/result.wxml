@@ -92,7 +92,7 @@
   <view wx:if="{{hasLeftSide}}" class="card">
     <view class="section-head">
       <van-icon name="photo-o" size="36rpx" color="#6366f1" />
-      <text class="section-title">左侧面分析</text>
+      <text class="section-title">左侧面（面朝左）</text>
       <van-tag wx:if="{{leftAnalysis.flatness_category}}" type="{{leftTagType}}" size="mini">{{leftAnalysis.flatness_category}}</van-tag>
     </view>
     <image wx:if="{{leftAnnotatedImg}}" src="{{leftAnnotatedImg}}" class="annotated-img" mode="widthFix" />
@@ -106,7 +106,7 @@
   <view wx:if="{{hasRightSide}}" class="card">
     <view class="section-head">
       <van-icon name="photo-o" size="36rpx" color="#6366f1" />
-      <text class="section-title">右侧面分析</text>
+      <text class="section-title">右侧面（面朝右）</text>
       <van-tag wx:if="{{rightAnalysis.flatness_category}}" type="{{rightTagType}}" size="mini">{{rightAnalysis.flatness_category}}</van-tag>
     </view>
     <image wx:if="{{rightAnnotatedImg}}" src="{{rightAnnotatedImg}}" class="annotated-img" mode="widthFix" />
