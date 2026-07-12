@@ -149,12 +149,38 @@ def _merge_point_masks(model, image_small, points, h, w, img_center, img_area):
     return hull_mask, contour, score
 
 
-def detect_head(image: np.ndarray, view: str = 'top') -> Optional[Tuple[np.ndarray, np.ndarray]]:
+def create_guide_mask(h, w, view='top'):
+    """
+    创建引导框椭圆 mask，排除背景干扰。
+    椭圆内=255，椭圆外=0。
+    比例与相机页 cover-view 引导框一致，外加 15% 余量。
+    """
+    cx, cy = w // 2, h // 2
+    if view == 'top':
+        # 俯视: 380×460 rpx, 约占屏幕 51%×61% → 换算像素
+        rx = int(w * 0.28)   # 56% of width (380/750*1.1 ≈ 0.56, radius=0.28)
+        ry = int(h * 0.33)   # 66% of height
+    else:
+        # 侧面: 360×440 rpx, 约占屏幕 48%×59%
+        rx = int(w * 0.26)   # 52% of width
+        ry = int(h * 0.31)   # 62% of height
+
+    mask = np.zeros((h, w), dtype=np.uint8)
+    cv2.ellipse(mask, (cx, cy), (rx, ry), 0, 0, 360, 255, -1)
+    # 边缘羽化 5px，避免硬边界干扰 SAM
+    mask = cv2.GaussianBlur(mask, (11, 11), 3)
+    return mask
+
+
+def detect_head(image: np.ndarray, view: str = 'top',
+                guide_mask: np.ndarray = None) -> Optional[Tuple[np.ndarray, np.ndarray]]:
     """
     零样本头部检测。
 
     view='top':  俯视图 — 点提示，3点+提前退出，~1.5秒
     view='side': 侧面图 — bbox 提示为主，合并回退，~2秒
+    guide_mask:  可选，引导框椭圆 mask (0-255)。传入后 SAM 推理前将椭圆外涂黑，
+                 减少背景干扰物，提升分割精度。
 
     返回: (head_mask, head_contour) 或 None
     """
@@ -172,6 +198,13 @@ def detect_head(image: np.ndarray, view: str = 'top') -> Optional[Tuple[np.ndarr
     h, w = image_small.shape[:2]
     img_center = (w / 2, h / 2)
     img_area = h * w
+
+    # 引导框 mask: 涂黑椭圆外区域，减少背景干扰
+    if guide_mask is not None:
+        if guide_mask.shape[:2] != (h, w):
+            guide_mask = cv2.resize(guide_mask, (w, h))
+        gm = (guide_mask / 255.0).astype(np.float32)
+        image_small = (image_small.astype(np.float32) * gm[:, :, None]).astype(np.uint8)
 
     try:
         model = _get_model()

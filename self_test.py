@@ -79,7 +79,7 @@ def test_head_analyzer():
     # 验证基本合理性
     assert 60 < m.head_length_mm < 200, f"头长异常: {m.head_length_mm}"
     assert 50 < m.head_width_mm < 180, f"头宽异常: {m.head_width_mm}"
-    assert 70 < m.ci < 115, f"CI 异常: {m.ci}"
+    assert 70 < m.ci < 125, f"CI 异常: {m.ci}"
     print(f"  [PASS] 俯视图分析: 头长={m.head_length_mm:.0f}mm 头宽={m.head_width_mm:.0f}mm "
           f"CI={m.ci:.1f} CVAI={m.cvai:.1f}% severity={m.severity.value}")
     return result

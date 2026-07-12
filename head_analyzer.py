@@ -881,8 +881,9 @@ def analyze_head_shape(
         return result
 
     # Step 1: SAM 零样本头部检测 (替代肤色检测 — 不受肤色/光照/背景影响)
-    from sam_detector import detect_head as detect_head_sam
-    sam_result = detect_head_sam(image)
+    from sam_detector import detect_head as detect_head_sam, create_guide_mask
+    guide_mask = create_guide_mask(h, w, 'top') if guide_frame else None
+    sam_result = detect_head_sam(image, guide_mask=guide_mask)
     if sam_result is None:
         # SAM 失败 → 回退到肤色检测
         enhanced = preprocess_image(image)

@@ -151,8 +151,10 @@ async def analyze_side(image: UploadFile = File(...), guide_frame: bool = Form(F
         if not result:
             return {"success": False, "error": "侧面分析失败"}
 
-        from sam_detector import detect_head
-        sam_out = detect_head(img, view='side')
+        from sam_detector import detect_head, create_guide_mask
+        h, w = img.shape[:2]
+        guide_mask = create_guide_mask(h, w, 'side') if guide_frame else None
+        sam_out = detect_head(img, view='side', guide_mask=guide_mask)
         side_b64 = None
         if sam_out:
             sa = img.copy()
