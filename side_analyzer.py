@@ -53,35 +53,38 @@ def analyze_side_profile(image: np.ndarray, guide_frame: bool = False) -> Option
 
     cx, cy = mean[0], mean[1]
 
-    # 将点分为前(面部)半和后(枕)半
+    # 沿 v1 分两半, 用曲率差异自动区分面部和枕部
+    #   面部: 距离方差大 (鼻子/额头/下巴轮廓不规则)
+    #   枕部: 距离方差小 (后脑勺相对光滑)
     proj = np.dot(centered, v1)
-    back_mask = proj < 0   # 后枕部
-    front_mask = proj >= 0
+    half_a_mask = proj < 0
+    half_b_mask = proj >= 0
 
-    back_pts = centered[back_mask]
-    if len(back_pts) < 15:
+    pts_a = centered[half_a_mask]
+    pts_b = centered[half_b_mask]
+    if len(pts_a) < 15 or len(pts_b) < 15:
         return None
 
-    # 计算后枕部点到中心的距离
-    back_dists = np.linalg.norm(back_pts, axis=1)
+    dists_a = np.linalg.norm(pts_a, axis=1)
+    dists_b = np.linalg.norm(pts_b, axis=1)
 
-    # 用前部点估算头部"理想半径" (前部通常比较圆)
-    front_pts = centered[front_mask]
-    if len(front_pts) > 15:
-        front_dists = np.linalg.norm(front_pts, axis=1)
-        expected_radius = np.median(front_dists)
+    # 距离方差大的 = 面部 (不规则), 方差小的 = 枕部 (平滑)
+    cv_a = np.std(dists_a) / (np.mean(dists_a) + 1e-6)
+    cv_b = np.std(dists_b) / (np.mean(dists_b) + 1e-6)
+
+    if cv_a > cv_b:
+        front_pts, front_dists = pts_a, dists_a
+        back_pts, back_dists = pts_b, dists_b
     else:
-        expected_radius = np.median(back_dists)
+        front_pts, front_dists = pts_b, dists_b
+        back_pts, back_dists = pts_a, dists_a
 
+    expected_radius = np.median(front_dists)
     if expected_radius < 10:
         return None
 
-    # 后枕扁平度: 后枕部实际距离 vs 理想半径
-    # 取后枕部最远 P5 距离 (排除异常点)
-    back_p95 = np.percentile(back_dists, 95)
+    # 后枕扁平度: 后枕部实际距离 vs 面部期望半径
     back_median = np.median(back_dists)
-
-    # 扁平评分: 0=与理想圆弧一致(圆润), 1=极度扁平
     flatness_raw = max(0, 1.0 - back_median / (expected_radius + 1e-6))
 
     # 曲率变异: 后枕部距离的标准差/均值 → 越大越不规则
