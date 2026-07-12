@@ -139,7 +139,7 @@ async def analyze(
 
 
 @app.post("/analyze_side")
-async def analyze_side(image: UploadFile = File(...), guide_frame: bool = Form(False)):
+async def analyze_side(image: UploadFile = File(...), guide_frame: bool = Form(False), side: str = Form("")):
     """侧面图分析 — 返回测量数据 + 独立分析结论"""
     img = _read_img(image)
     if img is None:
@@ -162,17 +162,17 @@ async def analyze_side(image: UploadFile = File(...), guide_frame: bool = Form(F
 
         flatness = result.get('flatness_category', '')
         flatness_score = result.get('posterior_flatness', 0)
-        scale_method = result.get('scale_method', '')
 
         side_analysis = {
+            "side": side,
             "flatness_category": flatness,
             "summary": f"后枕部{flatness}",
             "detail": _side_analysis_text(flatness, flatness_score),
-            "scale_method": scale_method,
         }
 
         return {
             "success": True,
+            "side": side,
             "measurements": result,
             "analysis": side_analysis,
             "annotated_image": f"data:image/jpeg;base64,{side_b64}" if side_b64 else None,
@@ -205,8 +205,8 @@ async def check_reference(image: UploadFile = File(...)):
 @app.post("/ai_analysis")
 async def ai_analysis(request: Request):
     """
-    综合分析: 接收俯视图+侧面图测量数据，调用 DeepSeek。
-    请求体: JSON {top_measurements, top_analysis, side_measurements, side_analysis, age_months}
+    综合分析: 接收俯视图+左右侧面图测量数据，调用 DeepSeek。
+    请求体: JSON {top_measurements, top_analysis, side_left_measurements, side_left_analysis, side_right_measurements, side_right_analysis, age_months}
     """
     try:
         body = await request.json()
@@ -214,8 +214,14 @@ async def ai_analysis(request: Request):
         return JSONResponse({"success": False, "error": "JSON 格式错误"}, status_code=400)
 
     top_data = body.get("top_measurements", {})
-    side_data = body.get("side_measurements", None)
+    side_data = body.get("side_left_measurements", None)  # 主用左侧
+    side_right = body.get("side_right_measurements", None)
     age_months = body.get("age_months", None)
+
+    # 合并两侧信息
+    if side_data and side_right:
+        side_data["right_flatness"] = side_right.get("posterior_flatness")
+        side_data["right_category"] = side_right.get("flatness_category")
 
     try:
         ai_result = analyze_with_deepseek(top_data, side_data, age_months)

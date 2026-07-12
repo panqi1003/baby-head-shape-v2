@@ -29,7 +29,7 @@ Page({
 
     // 综合分析
     const ai = data.ai || {}
-    const fb = data.fallback || {}
+    const fb = data.fb || {}
     const useAI = ai && !ai.error
     const combined = useAI ? ai : fb
 

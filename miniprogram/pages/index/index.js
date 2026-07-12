@@ -189,15 +189,17 @@ Page({
         data: {
           top_measurements: that._topResult.measurements,
           top_analysis: that._topResult.analysis,
-          side_measurements: that._sideResult ? that._sideResult.measurements : null,
-          side_analysis: that._sideResult ? that._sideResult.analysis : null,
+          side_left_measurements: that._leftSideResult ? that._leftSideResult.measurements : null,
+          side_left_analysis: that._leftSideResult ? that._leftSideResult.analysis : null,
+          side_right_measurements: that._rightSideResult ? that._rightSideResult.measurements : null,
+          side_right_analysis: that._rightSideResult ? that._rightSideResult.analysis : null,
           age_months: (that.data.ageMonths || '') ? parseInt(that.data.ageMonths) : null
         },
         success(r) {
           try {
             if (r.data && r.data.success) {
               allData.ai = r.data.ai_analysis
-              allData.fallback = r.data.fallback_advice
+              allData.fb = r.data.fallback_advice
             }
           } catch (e) {}
           that.finish(allData)
