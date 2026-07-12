@@ -149,21 +149,73 @@ def _merge_point_masks(model, image_small, points, h, w, img_center, img_area):
     return hull_mask, contour, score
 
 
+def _snap_to_edges(contour, image, max_dist=5):
+    """
+    Canny 边缘精调: 将轮廓点沿法线方向快照到最近图像边缘。
+    max_dist: 最大搜索距离 (px)
+    """
+    if contour is None or len(contour) < 10:
+        return contour
+
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    edges = cv2.Canny(gray, 30, 100)
+
+    pts = contour.reshape(-1, 2).astype(np.float32)
+    refined = []
+
+    for i in range(len(pts)):
+        prev_pt = pts[i - 1]
+        next_pt = pts[(i + 1) % len(pts)]
+
+        # 计算法线方向
+        tangent = next_pt - prev_pt
+        normal = np.array([-tangent[1], tangent[0]], dtype=np.float32)
+        n_len = np.linalg.norm(normal)
+        if n_len < 1:
+            refined.append(pts[i])
+            continue
+        normal /= n_len
+
+        # 沿法线正负方向搜索最近边缘点
+        best_pt = pts[i]
+        best_dist = max_dist + 1
+
+        for d in range(1, max_dist + 1):
+            for sign in [-1, 1]:
+                cx = int(round(pts[i][0] + normal[0] * d * sign))
+                cy = int(round(pts[i][1] + normal[1] * d * sign))
+                if 0 <= cy < edges.shape[0] and 0 <= cx < edges.shape[1]:
+                    if edges[cy, cx] > 0:
+                        dist = d
+                        if dist < best_dist:
+                            best_dist = dist
+                            best_pt = np.array([cx, cy], dtype=np.float32)
+                        break  # 找到边缘就停止这个方向
+            if best_dist <= max_dist:
+                break  # 找到最近的边缘点就停
+
+        refined.append(best_pt)
+
+    return np.array(refined, dtype=np.int32).reshape(-1, 1, 2)
+
+
 def create_guide_mask(h, w, view='top'):
     """
     创建引导框椭圆 mask，排除背景干扰。
     椭圆内=255，椭圆外=0。
-    比例与相机页 cover-view 引导框一致，外加 15% 余量。
+    比例与相机页 cover-view 引导框一致，收紧 8% 减少过度分割。
     """
     cx, cy = w // 2, h // 2
+    # 收紧系数: 0.92 (MiMo 反馈轮廓偏大 5-10%, 取 8%)
+    shrink = 0.92
     if view == 'top':
-        # 俯视: 380×460 rpx, 约占屏幕 51%×61% → 换算像素
-        rx = int(w * 0.28)   # 56% of width (380/750*1.1 ≈ 0.56, radius=0.28)
-        ry = int(h * 0.33)   # 66% of height
+        # 俯视: 380×460 rpx, 约占屏幕 51%×61%
+        rx = int(w * 0.28 * shrink)
+        ry = int(h * 0.33 * shrink)
     else:
         # 侧面: 360×440 rpx, 约占屏幕 48%×59%
-        rx = int(w * 0.26)   # 52% of width
-        ry = int(h * 0.31)   # 62% of height
+        rx = int(w * 0.26 * shrink)
+        ry = int(h * 0.31 * shrink)
 
     mask = np.zeros((h, w), dtype=np.uint8)
     cv2.ellipse(mask, (cx, cy), (rx, ry), 0, 0, 360, 255, -1)
@@ -309,6 +361,14 @@ def detect_head(image: np.ndarray, view: str = 'top',
 
     if best_mask is None or best_score < 0.3:
         return None
+
+    # ====== 后处理: 腐蚀 + Canny 边缘精调 ======
+    # 1. 形态学腐蚀 1-2px，收紧轮廓 (MiMo: 轮廓偏大 5-10%)
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+    best_mask = cv2.erode(best_mask, kernel, iterations=1)
+
+    # 2. Canny 边缘精调: 将轮廓点快照到最近的图像边缘
+    best_contour = _snap_to_edges(best_contour, image_small, max_dist=5)
 
     if scale != 1.0:
         best_mask = cv2.resize(best_mask, (w_orig, h_orig), interpolation=cv2.INTER_NEAREST)
