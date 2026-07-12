@@ -25,7 +25,7 @@ def analyze_side_profile(image: np.ndarray, guide_frame: bool = False) -> Option
     from sam_detector import detect_head
     from head_analyzer import detect_hair_interference, refine_contour_under_hair
 
-    sam_result = detect_head(image)
+    sam_result = detect_head(image, view='side')
     if sam_result is None:
         return None
 
