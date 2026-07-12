@@ -20,7 +20,7 @@ def _get_model():
     return _sam_model
 
 
-def _score_mask(mask, h, w, img_center, img_area):
+def _score_mask(mask, h, w, img_center, img_area, view='top'):
     """对单个 mask 评分，返回 (score, contour)"""
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     if not contours:
@@ -31,6 +31,14 @@ def _score_mask(mask, h, w, img_center, img_area):
     area_ratio = area / img_area
     if area_ratio < 0.02 or area_ratio > 0.65:
         return 0, None
+
+    # 侧面图纵横比约束: 头部侧面为横向椭圆，高/宽 > 2.0 说明含身体
+    # 下限不做限制——婴儿头型差异大，放宽以免误杀正常轮廓
+    if view == 'side':
+        bx, by, bw, bh = cv2.boundingRect(contour)
+        aspect_hw = bh / max(bw, 1)
+        if aspect_hw > 2.0:
+            return 0, None  # 太高了，包含身体(头+脖子+肩膀)
 
     M = cv2.moments(contour)
     if M['m00'] == 0:
@@ -72,21 +80,21 @@ def _mask_span_ratio(mask, w):
     return left / total
 
 
-def _detect_with_bbox(model, image_small, h, w, img_center, img_area, margin=0.12):
+def _detect_with_bbox(model, image_small, h, w, img_center, img_area, margin=0.12, view='top'):
     """用 bbox 提示检测，返回 (mask, contour, score) 或 (None, None, 0)"""
     try:
         bbox = [[int(w*margin), int(h*margin), int(w*(1-margin)), int(h*(1-margin))]]
         results = model(image_small, bboxes=bbox)
         if results and results[0].masks and len(results[0].masks.data) > 0:
             mask = (results[0].masks.data[0].cpu().numpy() * 255).astype(np.uint8)
-            score, contour = _score_mask(mask, h, w, img_center, img_area)
+            score, contour = _score_mask(mask, h, w, img_center, img_area, view)
             return mask, contour, score
     except Exception:
         pass
     return None, None, 0
 
 
-def _detect_with_points(model, image_small, points, h, w, img_center, img_area):
+def _detect_with_points(model, image_small, points, h, w, img_center, img_area, view='top'):
     """多点独立调用，返回最佳 (mask, contour, score)"""
     best_score, best_mask, best_contour = 0, None, None
     for pt in points:
@@ -97,7 +105,7 @@ def _detect_with_points(model, image_small, points, h, w, img_center, img_area):
         if not results or results[0].masks is None or len(results[0].masks.data) == 0:
             continue
         mask = (results[0].masks.data[0].cpu().numpy() * 255).astype(np.uint8)
-        score, contour = _score_mask(mask, h, w, img_center, img_area)
+        score, contour = _score_mask(mask, h, w, img_center, img_area, view)
         if score > best_score:
             best_score = score
             best_mask = mask
@@ -105,7 +113,7 @@ def _detect_with_points(model, image_small, points, h, w, img_center, img_area):
     return best_mask, best_contour, best_score
 
 
-def _merge_point_masks(model, image_small, points, h, w, img_center, img_area):
+def _merge_point_masks(model, image_small, points, h, w, img_center, img_area, view='top'):
     """多点独立调用 → 合并所有 mask → convex hull → 填洞"""
     masks = []
     for pt in points:
@@ -113,7 +121,7 @@ def _merge_point_masks(model, image_small, points, h, w, img_center, img_area):
             results = model(image_small, points=[pt], labels=[1])
             if results and results[0].masks and len(results[0].masks.data) > 0:
                 mask = (results[0].masks.data[0].cpu().numpy() * 255).astype(np.uint8)
-                score, _ = _score_mask(mask, h, w, img_center, img_area)
+                score, _ = _score_mask(mask, h, w, img_center, img_area, view)
                 if score >= 0.3:
                     masks.append(mask)
         except Exception:
@@ -145,7 +153,7 @@ def _merge_point_masks(model, image_small, points, h, w, img_center, img_area):
     if hull_area < 0.05 or hull_area > 0.65:
         return None, None, 0
 
-    score, contour = _score_mask(hull_mask, h, w, img_center, img_area)
+    score, contour = _score_mask(hull_mask, h, w, img_center, img_area, view)
     return hull_mask, contour, score
 
 
@@ -205,17 +213,17 @@ def create_guide_mask(h, w, view='top'):
     椭圆内=255，椭圆外=0。
     比例与相机页 cover-view 引导框一致，收紧 8% 减少过度分割。
     """
-    cx, cy = w // 2, h // 2
     # 收紧系数: 0.92 (MiMo 反馈轮廓偏大 5-10%, 取 8%)
     shrink = 0.92
     if view == 'top':
-        # 俯视: 380×460 rpx, 约占屏幕 51%×61%
+        cx, cy = w // 2, h // 2
         rx = int(w * 0.28 * shrink)
         ry = int(h * 0.33 * shrink)
     else:
-        # 侧面: 360×440 rpx, 约占屏幕 48%×59%
+        # 侧面: 头部在画面上半部，中心上移 12% 排除身体
+        cx, cy = w // 2, int(h * 0.42)
         rx = int(w * 0.26 * shrink)
-        ry = int(h * 0.31 * shrink)
+        ry = int(h * 0.28 * shrink)  # 进一步收紧 10%
 
     mask = np.zeros((h, w), dtype=np.uint8)
     cv2.ellipse(mask, (cx, cy), (rx, ry), 0, 0, 360, 255, -1)
@@ -272,7 +280,7 @@ def detect_head(image: np.ndarray, view: str = 'top',
     if view == 'side':
         # 策略1: bbox 10-90% (宽框)
         mask, contour, score = _detect_with_bbox(
-            model, image_small, h, w, img_center, img_area, margin=0.10)
+            model, image_small, h, w, img_center, img_area, margin=0.10, view='side')
 
         if mask is not None and score >= 0.3:
             span = _mask_span_ratio(mask, w)
@@ -284,7 +292,7 @@ def detect_head(image: np.ndarray, view: str = 'top',
         if best_mask is None:
             for m in [0.08, 0.15, 0.05]:
                 mask, contour, score = _detect_with_bbox(
-                    model, image_small, h, w, img_center, img_area, margin=m)
+                    model, image_small, h, w, img_center, img_area, margin=m, view='side')
                 if mask is not None and score >= 0.3:
                     span = _mask_span_ratio(mask, w)
                     if 0.20 < span < 0.80 and score > best_score:
@@ -300,7 +308,7 @@ def detect_head(image: np.ndarray, view: str = 'top',
                 [cx, cy + offset],      # 偏下
             ]
             mask, contour, score = _merge_point_masks(
-                model, image_small, points, h, w, img_center, img_area)
+                model, image_small, points, h, w, img_center, img_area, view='side')
             if mask is not None and score >= 0.3:
                 best_score, best_mask, best_contour = score, mask, contour
 
@@ -312,7 +320,7 @@ def detect_head(image: np.ndarray, view: str = 'top',
                 [cx + offset, cy],
             ]
             mask, contour, score = _detect_with_points(
-                model, image_small, points, h, w, img_center, img_area)
+                model, image_small, points, h, w, img_center, img_area, view='side')
             if mask is not None and score > best_score:
                 best_score, best_mask, best_contour = score, mask, contour
 
