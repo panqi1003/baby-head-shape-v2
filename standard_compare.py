@@ -54,8 +54,7 @@ def _align_and_scale_contour(std_contour, user_contour, h, w):
     user_cy = by + bh // 2
 
     # 缩放比例 (匹配用户头型尺寸, 保持标准形状比例)
-    # 乘以 1.15 略微放大 (MiMo: 原比例偏小 10-15%)
-    scale = max(bw / std_w, bh / std_h) * 1.15
+    scale = max(bw / std_w, bh / std_h)
 
     # 变换: 先平移到原点, 缩放, 再平移到用户中心
     aligned = std_pts.copy()
