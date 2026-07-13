@@ -22,12 +22,11 @@ def analyze_side_profile(image: np.ndarray, guide_frame: bool = False) -> Option
     """
     h, w = image.shape[:2]
 
-    from sam_detector import detect_head, create_guide_mask
+    from sam_detector import detect_head
     from head_analyzer import detect_hair_interference, refine_contour_under_hair
 
-    # 引导框 mask: 涂黑椭圆外，减少背景干扰
-    guide_mask = create_guide_mask(h, w, 'side') if guide_frame else None
-    sam_result = detect_head(image, view='side', guide_mask=guide_mask)
+    # 侧面图不需要 guide_mask — SAM点提示本身足够
+    sam_result = detect_head(image, view='side')
     if sam_result is None:
         return None
 

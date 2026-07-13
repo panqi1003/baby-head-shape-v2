@@ -176,24 +176,10 @@ def detect_head(image: np.ndarray, view: str = 'top',
     零样本头部检测。
 
     view='top':  俯视图 — 点提示，3点+提前退出，~1.5秒
-    view='side': 侧面图 — bbox 提示为主，合并回退，~2秒
-    guide_mask:  可选，引导框椭圆 mask (0-255)。传入后 SAM 推理前将椭圆外涂黑，
-                 减少背景干扰物，提升分割精度。
-
-    返回: (head_mask, head_contour) 或 None
+    view='side': 侧面图 — 点提示(同俯视)，bbox回退，~1.5秒
+    guide_mask:  可选，仅俯视图使用(侧面图忽略)
     """
     h_orig, w_orig = image.shape[:2]
-
-    # 侧面图: 裁掉底部 25%，物理排除身体区域
-    # 头部通常在画面中上部，75% crop 保留完整头部同时排除腿部
-    h_full = h_orig
-    if view == 'side':
-        crop_h = int(h_orig * 0.75)
-        image = image[:crop_h, :]
-        h_orig = crop_h
-        # 重建 guide_mask: 中心在 crop 的 55% 处 (头部在画面中上位置)
-        if guide_mask is not None:
-            guide_mask = create_guide_mask(crop_h, w_orig, 'side', center_y=0.55)
 
     # 缩小到 540px
     max_side = 540
@@ -208,8 +194,8 @@ def detect_head(image: np.ndarray, view: str = 'top',
     img_center = (w / 2, h / 2)
     img_area = h * w
 
-    # 引导框 mask: 涂黑椭圆外区域，减少背景干扰
-    if guide_mask is not None:
+    # 俯视图: 引导框 mask 涂黑椭圆外区域
+    if view == 'top' and guide_mask is not None:
         if guide_mask.shape[:2] != (h, w):
             guide_mask = cv2.resize(guide_mask, (w, h))
         gm = (guide_mask / 255.0).astype(np.float32)
@@ -222,84 +208,41 @@ def detect_head(image: np.ndarray, view: str = 'top',
 
     cx, cy = w // 2, h // 2
     offset = min(w, h) // 5
-
     best_score, best_mask, best_contour = 0, None, None
 
-    # ========== 侧面图: bbox 主策略 ==========
-    if view == 'side':
-        # 策略1: bbox 10-90% (宽框)
+    # ========== 统一策略: 点提示 + 提前退出 ==========
+    # 俯视和侧面使用相同的点提示策略
+    # MiMo Pro 审查结论: SAM点提示对"点击物体→分割整个物体"非常擅长
+    # 侧面不需要crop/bbox/guide_mask — 这些反而干扰SAM
+    prompt_points = [
+        [cx, cy],                  # 正中 (大概率命中)
+        [cx, cy - offset],         # 偏上 (头顶)
+        [cx + offset, cy],         # 偏右
+    ]
+
+    for i, pt in enumerate(prompt_points):
+        try:
+            results = model(image_small, points=[pt], labels=[1])
+        except Exception:
+            continue
+        if not results or results[0].masks is None or len(results[0].masks.data) == 0:
+            continue
+        mask = (results[0].masks.data[0].cpu().numpy() * 255).astype(np.uint8)
+        score, contour = _score_mask(mask, h, w, img_center, img_area)
+        if score > best_score:
+            best_score = score
+            best_mask = mask
+            best_contour = contour
+        # 提前退出: 正中点得分 >0.6 就认为找到了
+        if i == 0 and best_score > 0.6:
+            break
+
+    # 侧面图点提示失败 → bbox 回退
+    if view == 'side' and best_mask is None:
         mask, contour, score = _detect_with_bbox(
             model, image_small, h, w, img_center, img_area, margin=0.10)
-
         if mask is not None and score >= 0.3:
-            span = _mask_span_ratio(mask, w)
-            if 0.20 < span < 0.80:
-                # bbox 成功且 mask 左右分布均匀 → 直接使用
-                best_score, best_mask, best_contour = score, mask, contour
-
-        # 策略2: bbox 失败或偏一侧 → 尝试不同 bbox 范围
-        if best_mask is None:
-            for m in [0.08, 0.15, 0.05]:
-                mask, contour, score = _detect_with_bbox(
-                    model, image_small, h, w, img_center, img_area, margin=m)
-                if mask is not None and score >= 0.3:
-                    span = _mask_span_ratio(mask, w)
-                    if 0.20 < span < 0.80 and score > best_score:
-                        best_score, best_mask, best_contour = score, mask, contour
-
-        # 策略3: bbox 全部失败 → 多点合并
-        if best_mask is None:
-            points = [
-                [cx - offset*2, cy],   # 偏左
-                [cx, cy],               # 正中
-                [cx + offset*2, cy],    # 偏右
-                [cx, cy - offset],      # 偏上
-                [cx, cy + offset],      # 偏下
-            ]
-            mask, contour, score = _merge_point_masks(
-                model, image_small, points, h, w, img_center, img_area)
-            if mask is not None and score >= 0.3:
-                best_score, best_mask, best_contour = score, mask, contour
-
-        # 策略4: 全部失败 → 逐个点回退
-        if best_mask is None:
-            points = [
-                [cx, cy],
-                [cx - offset, cy],
-                [cx + offset, cy],
-            ]
-            mask, contour, score = _detect_with_points(
-                model, image_small, points, h, w, img_center, img_area)
-            if mask is not None and score > best_score:
-                best_score, best_mask, best_contour = score, mask, contour
-
-    # ========== 俯视图: 点提示 (保持原有逻辑) ==========
-    else:
-        prompt_points = [
-            [cx, cy],                  # 正中 (大概率命中)
-            [cx, cy - offset],         # 偏上 (头顶)
-            [cx + offset, cy],         # 偏右
-        ]
-        for i, pt in enumerate(prompt_points):
-            try:
-                results = model(image_small, points=[pt], labels=[1])
-            except Exception:
-                continue
-
-            if not results or results[0].masks is None or len(results[0].masks.data) == 0:
-                continue
-
-            mask = (results[0].masks.data[0].cpu().numpy() * 255).astype(np.uint8)
-            score, contour = _score_mask(mask, h, w, img_center, img_area)
-
-            if score > best_score:
-                best_score = score
-                best_mask = mask
-                best_contour = contour
-
-            # 提前退出: 正中点得分 >0.6 就认为找到了
-            if i == 0 and best_score > 0.6:
-                break
+            best_score, best_mask, best_contour = score, mask, contour
 
     # ========== 回退: 自动模式 ==========
     if best_mask is None:
@@ -321,16 +264,6 @@ def detect_head(image: np.ndarray, view: str = 'top',
 
     if scale != 1.0:
         best_mask = cv2.resize(best_mask, (w_orig, h_orig), interpolation=cv2.INTER_NEAREST)
-        cnts, _ = cv2.findContours(best_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        if cnts:
-            best_contour = max(cnts, key=cv2.contourArea)
-
-    # 侧面图: mask 补回原始高度 (底部补黑)
-    if view == 'side' and h_orig < h_full:
-        padded = np.zeros((h_full, w_orig), dtype=np.uint8)
-        padded[:h_orig, :] = best_mask
-        best_mask = padded
-        # 从 padding 后的 mask 重新提取 contour，确保坐标一致
         cnts, _ = cv2.findContours(best_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         if cnts:
             best_contour = max(cnts, key=cv2.contourArea)
