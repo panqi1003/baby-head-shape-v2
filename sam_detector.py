@@ -20,7 +20,7 @@ def _get_model():
     return _sam_model
 
 
-def _score_mask(mask, h, w, img_center, img_area, view='top'):
+def _score_mask(mask, h, w, img_center, img_area):
     """对单个 mask 评分，返回 (score, contour)"""
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     if not contours:
@@ -31,80 +31,6 @@ def _score_mask(mask, h, w, img_center, img_area, view='top'):
     area_ratio = area / img_area
     if area_ratio < 0.02 or area_ratio > 0.65:
         return 0, None
-
-def _trim_body_from_contour(contour, h):
-    """
-    垂直截断: 裁掉下巴以下的脖子/身体区域。
-    策略1: 质心上下高度比 >1.6 → 截断
-    策略2: 轮廓底部超过图像 60% → 硬截断 (侧面图头部不会这么低)
-    返回: (contour, was_trimmed)
-    """
-    if contour is None or len(contour) < 20:
-        return contour, False
-
-    M = cv2.moments(contour)
-    if M['m00'] == 0:
-        return contour, False
-    cy = M['m01'] / M['m00']
-
-    pts = contour.reshape(-1, 2)
-    y_vals = pts[:, 1]
-    y_min, y_max = y_vals.min(), y_vals.max()
-
-    upper_height = cy - y_min
-    lower_height = y_max - cy
-
-    cut_y = None
-
-    # 策略1: 质心以下超高 → 包含身体
-    if upper_height > 0 and lower_height > upper_height * 1.5:
-        cut_y = int(cy + upper_height * 1.3)
-
-    # 策略2: 底部超过 60% 图像高度 → 硬截断
-    if y_max > h * 0.60:
-        hard_cut = int(h * 0.60)
-        if cut_y is None or hard_cut < cut_y:
-            cut_y = hard_cut
-
-    if cut_y is not None:
-        pts = pts[pts[:, 1] <= cut_y]
-        if len(pts) >= 20:
-            return pts.reshape(-1, 1, 2).astype(np.int32), True
-
-    return contour, False
-
-
-def _score_mask(mask, h, w, img_center, img_area, view='top'):
-    """对单个 mask 评分，返回 (score, contour)"""
-    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    if not contours:
-        return 0, None
-
-    contour = max(contours, key=cv2.contourArea)
-    area = cv2.contourArea(contour)
-    area_ratio = area / img_area
-    if area_ratio < 0.02 or area_ratio > 0.65:
-        return 0, None
-
-    # 侧面图纵横比约束 + 质心检查
-    if view == 'side':
-        bx, by, bw, bh = cv2.boundingRect(contour)
-        aspect_hw = bh / max(bw, 1)
-        if aspect_hw > 2.0:
-            return 0, None
-
-    M = cv2.moments(contour)
-    if M['m00'] == 0:
-        return 0, None
-    cx, cy = M['m10'] / M['m00'], M['m01'] / M['m00']
-
-    # 侧面图质心位置: 应在图像上半部，否则含身体
-    if view == 'side' and cy > h * 0.55:
-        return 0, None
-
-    max_dist = math.sqrt(img_area) / 2
-    dist = math.sqrt((cx - img_center[0])**2 + (cy - img_center[1])**2)
-    center_score = max(0, 1.0 - dist / max_dist)
 
     M = cv2.moments(contour)
     if M['m00'] == 0:
@@ -146,21 +72,21 @@ def _mask_span_ratio(mask, w):
     return left / total
 
 
-def _detect_with_bbox(model, image_small, h, w, img_center, img_area, margin=0.12, view='top'):
+def _detect_with_bbox(model, image_small, h, w, img_center, img_area, margin=0.12):
     """用 bbox 提示检测，返回 (mask, contour, score) 或 (None, None, 0)"""
     try:
         bbox = [[int(w*margin), int(h*margin), int(w*(1-margin)), int(h*(1-margin))]]
         results = model(image_small, bboxes=bbox)
         if results and results[0].masks and len(results[0].masks.data) > 0:
             mask = (results[0].masks.data[0].cpu().numpy() * 255).astype(np.uint8)
-            score, contour = _score_mask(mask, h, w, img_center, img_area, view)
+            score, contour = _score_mask(mask, h, w, img_center, img_area)
             return mask, contour, score
     except Exception:
         pass
     return None, None, 0
 
 
-def _detect_with_points(model, image_small, points, h, w, img_center, img_area, view='top'):
+def _detect_with_points(model, image_small, points, h, w, img_center, img_area):
     """多点独立调用，返回最佳 (mask, contour, score)"""
     best_score, best_mask, best_contour = 0, None, None
     for pt in points:
@@ -171,7 +97,7 @@ def _detect_with_points(model, image_small, points, h, w, img_center, img_area, 
         if not results or results[0].masks is None or len(results[0].masks.data) == 0:
             continue
         mask = (results[0].masks.data[0].cpu().numpy() * 255).astype(np.uint8)
-        score, contour = _score_mask(mask, h, w, img_center, img_area, view)
+        score, contour = _score_mask(mask, h, w, img_center, img_area)
         if score > best_score:
             best_score = score
             best_mask = mask
@@ -179,7 +105,7 @@ def _detect_with_points(model, image_small, points, h, w, img_center, img_area, 
     return best_mask, best_contour, best_score
 
 
-def _merge_point_masks(model, image_small, points, h, w, img_center, img_area, view='top'):
+def _merge_point_masks(model, image_small, points, h, w, img_center, img_area):
     """多点独立调用 → 合并所有 mask → convex hull → 填洞"""
     masks = []
     for pt in points:
@@ -187,7 +113,7 @@ def _merge_point_masks(model, image_small, points, h, w, img_center, img_area, v
             results = model(image_small, points=[pt], labels=[1])
             if results and results[0].masks and len(results[0].masks.data) > 0:
                 mask = (results[0].masks.data[0].cpu().numpy() * 255).astype(np.uint8)
-                score, _ = _score_mask(mask, h, w, img_center, img_area, view)
+                score, _ = _score_mask(mask, h, w, img_center, img_area)
                 if score >= 0.3:
                     masks.append(mask)
         except Exception:
@@ -219,77 +145,25 @@ def _merge_point_masks(model, image_small, points, h, w, img_center, img_area, v
     if hull_area < 0.05 or hull_area > 0.65:
         return None, None, 0
 
-    score, contour = _score_mask(hull_mask, h, w, img_center, img_area, view)
+    score, contour = _score_mask(hull_mask, h, w, img_center, img_area)
     return hull_mask, contour, score
-
-
-def _snap_to_edges(contour, image, max_dist=5):
-    """
-    Canny 边缘精调: 将轮廓点沿法线方向快照到最近图像边缘。
-    max_dist: 最大搜索距离 (px)
-    """
-    if contour is None or len(contour) < 10:
-        return contour
-
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    edges = cv2.Canny(gray, 30, 100)
-
-    pts = contour.reshape(-1, 2).astype(np.float32)
-    refined = []
-
-    for i in range(len(pts)):
-        prev_pt = pts[i - 1]
-        next_pt = pts[(i + 1) % len(pts)]
-
-        # 计算法线方向
-        tangent = next_pt - prev_pt
-        normal = np.array([-tangent[1], tangent[0]], dtype=np.float32)
-        n_len = np.linalg.norm(normal)
-        if n_len < 1:
-            refined.append(pts[i])
-            continue
-        normal /= n_len
-
-        # 沿法线正负方向搜索最近边缘点
-        best_pt = pts[i]
-        best_dist = max_dist + 1
-
-        for d in range(1, max_dist + 1):
-            for sign in [-1, 1]:
-                cx = int(round(pts[i][0] + normal[0] * d * sign))
-                cy = int(round(pts[i][1] + normal[1] * d * sign))
-                if 0 <= cy < edges.shape[0] and 0 <= cx < edges.shape[1]:
-                    if edges[cy, cx] > 0:
-                        dist = d
-                        if dist < best_dist:
-                            best_dist = dist
-                            best_pt = np.array([cx, cy], dtype=np.float32)
-                        break  # 找到边缘就停止这个方向
-            if best_dist <= max_dist:
-                break  # 找到最近的边缘点就停
-
-        refined.append(best_pt)
-
-    return np.array(refined, dtype=np.int32).reshape(-1, 1, 2)
 
 
 def create_guide_mask(h, w, view='top'):
     """
     创建引导框椭圆 mask，排除背景干扰。
     椭圆内=255，椭圆外=0。
-    比例与相机页 cover-view 引导框一致，收紧 8% 减少过度分割。
+    比例与相机页 cover-view 引导框一致，外加 15% 余量。
     """
-    # 收紧系数: 0.92 (MiMo 反馈轮廓偏大 5-10%, 取 8%)
-    shrink = 0.92
+    cx, cy = w // 2, h // 2
     if view == 'top':
-        cx, cy = w // 2, h // 2
-        rx = int(w * 0.28 * shrink)
-        ry = int(h * 0.33 * shrink)
+        # 俯视: 380×460 rpx, 约占屏幕 51%×61% → 换算像素
+        rx = int(w * 0.28)   # 56% of width (380/750*1.1 ≈ 0.56, radius=0.28)
+        ry = int(h * 0.33)   # 66% of height
     else:
-        # 侧面: 头部在画面上半部，中心上移 12% 排除身体
-        cx, cy = w // 2, int(h * 0.42)
-        rx = int(w * 0.26 * shrink)
-        ry = int(h * 0.28 * shrink)  # 进一步收紧 10%
+        # 侧面: 360×440 rpx, 约占屏幕 48%×59%
+        rx = int(w * 0.26)   # 52% of width
+        ry = int(h * 0.31)   # 62% of height
 
     mask = np.zeros((h, w), dtype=np.uint8)
     cv2.ellipse(mask, (cx, cy), (rx, ry), 0, 0, 360, 255, -1)
@@ -311,6 +185,17 @@ def detect_head(image: np.ndarray, view: str = 'top',
     返回: (head_mask, head_contour) 或 None
     """
     h_orig, w_orig = image.shape[:2]
+
+    # 侧面图: 裁掉底部 45%，物理排除身体区域
+    # (SAM 无法区分脸和身体——它们是视觉连续的。crop 是唯一可靠的方式)
+    h_full = h_orig  # 保存原始高度用于恢复
+    if view == 'side':
+        crop_h = int(h_orig * 0.55)
+        image = image[:crop_h, :]
+        h_orig = crop_h
+        # 同步裁剪 guide_mask
+        if guide_mask is not None and guide_mask.shape[0] > crop_h:
+            guide_mask = guide_mask[:crop_h, :]
 
     # 缩小到 540px
     max_side = 540
@@ -346,7 +231,7 @@ def detect_head(image: np.ndarray, view: str = 'top',
     if view == 'side':
         # 策略1: bbox 10-90% (宽框)
         mask, contour, score = _detect_with_bbox(
-            model, image_small, h, w, img_center, img_area, margin=0.10, view='side')
+            model, image_small, h, w, img_center, img_area, margin=0.10)
 
         if mask is not None and score >= 0.3:
             span = _mask_span_ratio(mask, w)
@@ -358,7 +243,7 @@ def detect_head(image: np.ndarray, view: str = 'top',
         if best_mask is None:
             for m in [0.08, 0.15, 0.05]:
                 mask, contour, score = _detect_with_bbox(
-                    model, image_small, h, w, img_center, img_area, margin=m, view='side')
+                    model, image_small, h, w, img_center, img_area, margin=m)
                 if mask is not None and score >= 0.3:
                     span = _mask_span_ratio(mask, w)
                     if 0.20 < span < 0.80 and score > best_score:
@@ -374,7 +259,7 @@ def detect_head(image: np.ndarray, view: str = 'top',
                 [cx, cy + offset],      # 偏下
             ]
             mask, contour, score = _merge_point_masks(
-                model, image_small, points, h, w, img_center, img_area, view='side')
+                model, image_small, points, h, w, img_center, img_area)
             if mask is not None and score >= 0.3:
                 best_score, best_mask, best_contour = score, mask, contour
 
@@ -386,7 +271,7 @@ def detect_head(image: np.ndarray, view: str = 'top',
                 [cx + offset, cy],
             ]
             mask, contour, score = _detect_with_points(
-                model, image_small, points, h, w, img_center, img_area, view='side')
+                model, image_small, points, h, w, img_center, img_area)
             if mask is not None and score > best_score:
                 best_score, best_mask, best_contour = score, mask, contour
 
@@ -436,35 +321,16 @@ def detect_head(image: np.ndarray, view: str = 'top',
     if best_mask is None or best_score < 0.3:
         return None
 
-    # ====== 后处理: 垂直截断 + 腐蚀 + Canny 边缘精调 ======
-    # 0. 侧面图: 垂直截断，裁掉下巴以下的脖子/身体 (MiMo: 轮廓延伸到胸口)
-    if view == 'side':
-        best_contour, trimmed = _trim_body_from_contour(best_contour, h)
-        # 只有真正截断了才重绘 mask
-        if trimmed:
-            trimmed_mask = np.zeros((h, w), dtype=np.uint8)
-            cv2.drawContours(trimmed_mask, [best_contour], -1, 255, -1)
-            best_mask = trimmed_mask
-
-    # 1. 形态学腐蚀 1-2px，收紧轮廓 (MiMo: 轮廓偏大 5-10%)
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-    best_mask = cv2.erode(best_mask, kernel, iterations=1)
-
-    # 2. Canny 边缘精调: 将轮廓点快照到最近的图像边缘
-    best_contour = _snap_to_edges(best_contour, image_small, max_dist=5)
-
     if scale != 1.0:
         best_mask = cv2.resize(best_mask, (w_orig, h_orig), interpolation=cv2.INTER_NEAREST)
         cnts, _ = cv2.findContours(best_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         if cnts:
             best_contour = max(cnts, key=cv2.contourArea)
 
-    # 3. 侧面图最终截断: 在原始尺寸上再做一次硬截断 (防止 resize 丢失)
-    if view == 'side' and best_contour is not None and len(best_contour) >= 20:
-        best_contour, trimmed = _trim_body_from_contour(best_contour, h_orig)
-        if trimmed:
-            final_mask = np.zeros((h_orig, w_orig), dtype=np.uint8)
-            cv2.drawContours(final_mask, [best_contour], -1, 255, -1)
-            best_mask = final_mask
+    # 侧面图: mask 补回原始高度 (底部补黑)
+    if view == 'side' and h_orig < h_full:
+        padded = np.zeros((h_full, w_orig), dtype=np.uint8)
+        padded[:h_orig, :] = best_mask
+        best_mask = padded
 
     return best_mask, best_contour
