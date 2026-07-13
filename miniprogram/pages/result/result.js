@@ -10,7 +10,7 @@ Page({
     hasLeftSide: false, leftAnnotatedImg: '', leftAnalysis: {}, leftTagType: 'primary',
     hasRightSide: false, rightAnnotatedImg: '', rightAnalysis: {}, rightTagType: 'primary',
 
-    hasAI: false, aiExplanation: '',
+    hasAI: false, aiExplanation: '', hasReference: false,
     tips: [], tummyTime: '', nextStep: '', fallbackText: ''
   },
 
@@ -57,7 +57,7 @@ Page({
       // 综合
       hasAI: useAI && !!ai.explanation,
       aiExplanation: (ai.explanation || '').slice(0, 300),
-      tips: combined.daily_tips || ((combined.intervention_plan && combined.intervention_plan.repositioning) || []),
+      tips: combined.daily_tips || [],
       tummyTime: combined.tummy_time_advice || (combined.intervention_plan && combined.intervention_plan.tummy_time) || '',
       nextStep: combined.next_step || '',
       fallbackText: (!useAI && combined.explanation) ? combined.explanation : ''

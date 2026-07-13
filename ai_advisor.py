@@ -52,9 +52,14 @@ def _build_prompt(
 
     if side_measurements:
         prompt += f"""
-### 侧面图
+### 侧面图(左侧)
 - 后枕部扁平度: {side_measurements.get('posterior_flatness', 'N/A')} (0=圆润, 1=偏平)
 - 分类: {side_measurements.get('flatness_category', 'N/A')}
+"""
+        if side_measurements.get('right_flatness') is not None:
+            prompt += f"""### 侧面图(右侧)
+- 后枕部扁平度: {side_measurements.get('right_flatness', 'N/A')}
+- 分类: {side_measurements.get('right_category', 'N/A')}
 """
     else:
         prompt += """

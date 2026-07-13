@@ -18,18 +18,6 @@ from dataclasses import dataclass, field
 from typing import Optional, Tuple, List
 from enum import Enum
 
-# SAM 模型 (延迟加载)
-_sam_model = None
-
-def _get_sam_model():
-    """延迟加载 MobileSAM，首次调用时自动下载模型(约40MB)"""
-    global _sam_model
-    if _sam_model is None:
-        from ultralytics import SAM
-        _sam_model = SAM('mobile_sam.pt')
-    return _sam_model
-
-
 # ============================================================
 # 数据结构
 # ============================================================
@@ -67,14 +55,6 @@ class AnalysisResult:
 # ============================================================
 # 可调参数
 # ============================================================
-
-# 肤色检测 — YCrCb 空间阈值 (婴儿肤色)
-SKIN_YCRCB_LOWER = np.array([0, 133, 77], dtype=np.uint8)
-SKIN_YCRCB_UPPER = np.array([255, 173, 127], dtype=np.uint8)
-
-# HSV 肤色阈值 (辅助)
-SKIN_HSV_LOWER = np.array([0, 20, 40], dtype=np.uint8)
-SKIN_HSV_UPPER = np.array([25, 150, 255], dtype=np.uint8)
 
 # 形态学参数
 MORPH_KERNEL_SIZE = 5
@@ -472,14 +452,14 @@ def refine_contour_under_hair(image: np.ndarray, head_mask: np.ndarray,
         return contour  # 几乎没有头发
 
     # 将头发区域从 mask 中移除
-    clean_mask = cv2.bitwise_and(head_mask, head_mask, mask=cv2.bitwise_not(hair_mask))
+    refined_mask = cv2.bitwise_and(head_mask, head_mask, mask=cv2.bitwise_not(hair_mask))
 
     # 形态学清理
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
-    clean_mask = cv2.morphologyEx(clean_mask, cv2.MORPH_CLOSE, kernel, iterations=2)
+    refined_mask = cv2.morphologyEx(refined_mask, cv2.MORPH_CLOSE, kernel, iterations=2)
 
     # 提取新轮廓
-    contours, _ = cv2.findContours(clean_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours, _ = cv2.findContours(refined_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     if not contours:
         return contour
 
@@ -692,7 +672,7 @@ def detect_coin(image: np.ndarray, skin_mask: np.ndarray) -> Optional[Tuple]:
     return (int(best[0]), int(best[1])), int(best[2])
 
 
-def detect_coin_by_circularity(image: np.ndarray) -> Optional[Tuple]:
+def detect_coin_by_circularity(image: np.ndarray, skin_mask: np.ndarray = None) -> Optional[Tuple]:
     """降级方案：基于轮廓圆形度筛选圆形物体"""
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(gray, (9, 9), 2)
@@ -711,6 +691,12 @@ def detect_coin_by_circularity(image: np.ndarray) -> Optional[Tuple]:
         circularity = 4 * math.pi * area / (perimeter * perimeter)
         if 0.7 < circularity < 1.3:
             (cx, cy), radius = cv2.minEnclosingCircle(cnt)
+            # 肤色排除: 圆心在皮肤上不是硬币(避免头部误检)
+            if skin_mask is not None:
+                ix, iy = int(cx), int(cy)
+                h, w = skin_mask.shape[:2]
+                if 0 <= iy < h and 0 <= ix < w and skin_mask[iy, ix] > 0:
+                    continue
             score = circularity * area
             if score > best_score:
                 best_score = score
@@ -947,7 +933,7 @@ def analyze_head_shape(
     if use_reference and auto_detect_reference:
         coin_info = detect_coin(image, skin_mask)
         if coin_info is None:
-            coin_info = detect_coin_by_circularity(image)
+            coin_info = detect_coin_by_circularity(image, skin_mask)
 
     if coin_info is not None:
         _, coin_r = coin_info
