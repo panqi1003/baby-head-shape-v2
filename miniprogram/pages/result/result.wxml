@@ -42,6 +42,19 @@
       </view>
     </view>
 
+    <!-- 标准头型对比 -->
+    <view wx:if="{{topCompareImg}}" class="compare-section">
+      <view class="compare-head">
+        <van-icon name="chart-trending-o" size="32rpx" color="#8b5cf6" />
+        <text class="compare-title">标准头型对比</text>
+        <van-tag wx:if="{{topSimilarity >= 85}}" type="success" size="mini">相似度 {{topSimilarity}}%</van-tag>
+        <van-tag wx:elif="{{topSimilarity >= 60}}" type="warning" size="mini">相似度 {{topSimilarity}}%</van-tag>
+        <van-tag wx:else type="danger" size="mini">相似度 {{topSimilarity}}%</van-tag>
+      </view>
+      <image src="{{topCompareImg}}" class="compare-img" mode="widthFix" />
+      <text class="compare-legend">绿线=实测轮廓 | 白虚线=标准椭圆(CI=78)</text>
+    </view>
+
     <view wx:if="{{!hasReference}}" class="scale-warn">
       <van-icon name="warning-o" size="28rpx" color="#d97706" />
       <text>未检测到参照物，使用平均头宽估算，精度较低。建议拍照时放入1元硬币作为参照。</text>
