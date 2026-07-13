@@ -140,14 +140,14 @@ async def analyze(
 
 @app.post("/analyze_side")
 async def analyze_side(image: UploadFile = File(...), guide_frame: bool = Form(False), side: str = Form("")):
-    """侧面图分析 — 返回测量数据 + 独立分析结论"""
+    """侧面图分析 — 返回测量数据 + 独立分析结论 (guide_frame保留兼容, 不再使用)"""
     img = _read_img(image)
     if img is None:
         return JSONResponse({"success": False, "error": "无法解析侧面图"}, status_code=400)
 
     try:
         from side_analyzer import analyze_side_profile
-        result = analyze_side_profile(img, guide_frame=guide_frame)
+        result = analyze_side_profile(img)
         if not result:
             return {"success": False, "error": "侧面分析失败"}
 

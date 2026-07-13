@@ -8,17 +8,14 @@ import math
 from typing import Optional, Dict
 
 
-def analyze_side_profile(image: np.ndarray, guide_frame: bool = False) -> Optional[Dict]:
+def analyze_side_profile(image: np.ndarray) -> Optional[Dict]:
     """
     分析侧面婴儿头部照片。
 
-    改进算法:
       1. SAM 分割头部
       2. PCA 找前后方向 (第一主成分)
       3. 将后枕部轮廓曲率与理想圆弧对比
       4. 扁平度 = 曲率偏差 / 期望半径
-
-    返回 dict 或 None
     """
     h, w = image.shape[:2]
 
@@ -116,6 +113,6 @@ def analyze_side_profile(image: np.ndarray, guide_frame: bool = False) -> Option
         "flatness_category": category,
         "curvature_cv": round(curvature_cv, 3),
         "expected_radius": round(expected_radius, 1),
-        "scale_method": "引导框" if guide_frame else "默认估算",
+        "scale_method": "默认估算",
         "_head_contour": contour_list,  # 传给 app.py 画标注图，避免重复 SAM 调用
     }

@@ -89,7 +89,7 @@ def test_side_analyzer():
     """测试侧面图分析全流程"""
     from side_analyzer import analyze_side_profile
     img = make_side_synthetic()
-    result = analyze_side_profile(img, guide_frame=True)
+    result = analyze_side_profile(img)
     assert result is not None, "侧面图分析失败!"
     assert 'posterior_flatness' in result
     assert 'flatness_category' in result
@@ -137,7 +137,7 @@ def test_full_pipeline():
 
     # 阶段2: 左右侧面
     side_img = make_side_synthetic()
-    side_result = analyze_side_profile(side_img, guide_frame=True)
+    side_result = analyze_side_profile(side_img)
     assert side_result is not None, "阶段2失败"
     print(f"  阶段2 [PASS]: flatness={side_result['posterior_flatness']:.3f} {side_result['flatness_category']}")
 

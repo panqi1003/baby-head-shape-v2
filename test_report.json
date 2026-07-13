@@ -1,0 +1,22 @@
+{
+  "total": 12,
+  "passed": 11,
+  "failed": [
+    {
+      "case": "top_dolicho",
+      "issues": [
+        "长头型CI应偏低: 实际143.7"
+      ],
+      "measurements": {
+        "ci": 143.7,
+        "cvai": 0.0,
+        "cva_mm": 0.0,
+        "head_length_mm": 65.5,
+        "head_width_mm": 94.2,
+        "severity": "重度",
+        "has_reference": false
+      }
+    }
+  ],
+  "mimo_checks": []
+}

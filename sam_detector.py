@@ -62,16 +62,6 @@ def _score_mask(mask, h, w, img_center, img_area):
     return score, contour
 
 
-def _mask_span_ratio(mask, w):
-    """返回 mask 在图像左右半的分布: 左半占比 / 总占比。0.5=均匀分布"""
-    left = mask[:, :w//2].mean()
-    right = mask[:, w//2:].mean()
-    total = left + right
-    if total < 1e-9:
-        return 0
-    return left / total
-
-
 def _detect_with_bbox(model, image_small, h, w, img_center, img_area, margin=0.12):
     """用 bbox 提示检测，返回 (mask, contour, score) 或 (None, None, 0)"""
     try:
@@ -86,86 +76,16 @@ def _detect_with_bbox(model, image_small, h, w, img_center, img_area, margin=0.1
     return None, None, 0
 
 
-def _detect_with_points(model, image_small, points, h, w, img_center, img_area):
-    """多点独立调用，返回最佳 (mask, contour, score)"""
-    best_score, best_mask, best_contour = 0, None, None
-    for pt in points:
-        try:
-            results = model(image_small, points=[pt], labels=[1])
-        except Exception:
-            continue
-        if not results or results[0].masks is None or len(results[0].masks.data) == 0:
-            continue
-        mask = (results[0].masks.data[0].cpu().numpy() * 255).astype(np.uint8)
-        score, contour = _score_mask(mask, h, w, img_center, img_area)
-        if score > best_score:
-            best_score = score
-            best_mask = mask
-            best_contour = contour
-    return best_mask, best_contour, best_score
-
-
-def _merge_point_masks(model, image_small, points, h, w, img_center, img_area):
-    """多点独立调用 → 合并所有 mask → convex hull → 填洞"""
-    masks = []
-    for pt in points:
-        try:
-            results = model(image_small, points=[pt], labels=[1])
-            if results and results[0].masks and len(results[0].masks.data) > 0:
-                mask = (results[0].masks.data[0].cpu().numpy() * 255).astype(np.uint8)
-                score, _ = _score_mask(mask, h, w, img_center, img_area)
-                if score >= 0.3:
-                    masks.append(mask)
-        except Exception:
-            continue
-
-    if len(masks) < 2:
-        return None, None, 0
-
-    # 并集
-    merged = np.maximum.reduce(masks)
-    merged_u8 = (merged).astype(np.uint8)
-
-    # 形态学闭运算填小洞
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9))
-    closed = cv2.morphologyEx(merged_u8, cv2.MORPH_CLOSE, kernel)
-
-    # convex hull 填大凹槽
-    cnts, _ = cv2.findContours(closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    if not cnts:
-        return None, None, 0
-
-    all_pts = np.vstack([c.reshape(-1, 2) for c in cnts])
-    hull = cv2.convexHull(all_pts.astype(np.float32))
-    hull_mask = np.zeros((h, w), dtype=np.uint8)
-    cv2.fillConvexPoly(hull_mask, hull.astype(np.int32), 255)
-
-    # 验证: 面积不能超过 65%
-    hull_area = hull_mask.sum() / 255 / (h * w)
-    if hull_area < 0.05 or hull_area > 0.65:
-        return None, None, 0
-
-    score, contour = _score_mask(hull_mask, h, w, img_center, img_area)
-    return hull_mask, contour, score
-
-
-def create_guide_mask(h, w, view='top', center_y=0.55):
+def create_guide_mask(h, w):
     """
-    创建引导框椭圆 mask，排除背景干扰。
-    center_y: 椭圆中心在图像高度的比例 (俯视=0.5, 侧面=0.55 头部偏上)
+    创建俯视图引导框椭圆 mask (仅俯视图使用)。
+    椭圆内=255，椭圆外=0。
     """
-    cx = w // 2
-    cy = int(h * (0.5 if view == 'top' else center_y))
-    if view == 'top':
-        rx = int(w * 0.28)
-        ry = int(h * 0.33)
-    else:
-        rx = int(w * 0.26)
-        ry = int(h * 0.31)
-
+    cx, cy = w // 2, h // 2
+    rx = int(w * 0.28)
+    ry = int(h * 0.33)
     mask = np.zeros((h, w), dtype=np.uint8)
     cv2.ellipse(mask, (cx, cy), (rx, ry), 0, 0, 360, 255, -1)
-    # 边缘羽化，避免硬边界干扰 SAM
     mask = cv2.GaussianBlur(mask, (11, 11), 3)
     return mask
 

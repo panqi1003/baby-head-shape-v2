@@ -199,7 +199,7 @@ def run_top_analysis(img):
 def run_side_analysis(img):
     """跑侧面分析，返回 (result, annotated_image_bytes)"""
     from side_analyzer import analyze_side_profile
-    result = analyze_side_profile(img, guide_frame=True)
+    result = analyze_side_profile(img)
     if result:
         contour_list = result.get('_head_contour')
         side_buf = None
@@ -322,7 +322,7 @@ def run_all_tests(quick=False, with_mimo=True):
         test_images.append((case_id, img, gt, 'top'))
 
         # 直接SAM检测
-        gm = create_guide_mask(*img.shape[:2], 'top')
+        gm = create_guide_mask(*img.shape[:2])
         t0 = time.time()
         sam_out = detect_head(img, view='top', guide_mask=gm)
         dt = (time.time() - t0) * 1000
@@ -358,9 +358,9 @@ def run_all_tests(quick=False, with_mimo=True):
         test_images.append((case_id, img, gt, 'side'))
 
         # 直接SAM检测
-        gm = create_guide_mask(*img.shape[:2], 'side')
+        gm = None  # 侧面不需要guide_mask
         t0 = time.time()
-        sam_out = detect_head(img, view='side', guide_mask=gm)
+        sam_out = detect_head(img, view='side')
         dt = (time.time() - t0) * 1000
 
         if sam_out:
