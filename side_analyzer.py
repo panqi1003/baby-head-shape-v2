@@ -105,7 +105,10 @@ def analyze_side_profile(image: np.ndarray) -> Optional[Dict]:
     # 序列化 contour 为列表 (numpy array 不能直接 JSON 序列化)
     contour_list = head_contour.reshape(-1, 2).tolist() if head_contour is not None else None
 
-    return {
+    # 标准头型对比 (先建 result_dict 再用)
+    comp_data = None
+
+    result_dict = {
         "posterior_flatness": flatness_score,
         "head_length_px": round(head_length_px, 1),
         "head_height_px": round(head_height_px, 1),
@@ -114,5 +117,15 @@ def analyze_side_profile(image: np.ndarray) -> Optional[Dict]:
         "curvature_cv": round(curvature_cv, 3),
         "expected_radius": round(expected_radius, 1),
         "scale_method": "默认估算",
-        "_head_contour": contour_list,  # 传给 app.py 画标注图，避免重复 SAM 调用
+        "_head_contour": contour_list,
     }
+
+    # 标准头型对比 (基于扁平度评分)
+    try:
+        from standard_compare import draw_comparison
+        _, comp_data = draw_comparison(image, head_contour, view='side', side_result=result_dict)
+        result_dict["_standard_compare"] = comp_data
+    except Exception:
+        result_dict["_standard_compare"] = None
+
+    return result_dict

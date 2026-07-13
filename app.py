@@ -127,6 +127,7 @@ async def analyze(
     else:
         scale_note = "年龄估算 · 精度较低"
 
+    standard_compare = getattr(result, 'standard_compare', None)
     return {
         "success": True,
         "steps": result.processing_steps,
@@ -135,6 +136,7 @@ async def analyze(
         "annotated_image": f"data:image/jpeg;base64,{img_b64}",
         "has_reference": has_ref,
         "scale_note": scale_note,
+        "standard_compare": standard_compare,
     }
 
 
@@ -153,13 +155,23 @@ async def analyze_side(image: UploadFile = File(...), guide_frame: bool = Form(F
 
         # 复用 analyze_side_profile 返回的 contour，避免重复 SAM 调用
         contour_list = result.pop("_head_contour", None)
+        comp_data = result.pop("_standard_compare", None)
         side_b64 = None
+        compare_b64 = None
         if contour_list and len(contour_list) >= 20:
             contour = np.array(contour_list, dtype=np.int32).reshape(-1, 1, 2)
             sa = img.copy()
             cv2.drawContours(sa, [contour], -1, (0, 200, 80), 2)
             _, sb = cv2.imencode('.jpg', sa, [cv2.IMWRITE_JPEG_QUALITY, 85])
             side_b64 = base64.b64encode(sb).decode('utf-8')
+            # 标准对比图
+            try:
+                from standard_compare import draw_comparison
+                comp_img, _ = draw_comparison(img, contour, view='side', side_result=result)
+                _, cb = cv2.imencode('.jpg', comp_img, [cv2.IMWRITE_JPEG_QUALITY, 85])
+                compare_b64 = base64.b64encode(cb).decode('utf-8')
+            except Exception:
+                pass
 
         flatness = result.get('flatness_category', '')
         flatness_score = result.get('posterior_flatness', 0)
@@ -177,6 +189,8 @@ async def analyze_side(image: UploadFile = File(...), guide_frame: bool = Form(F
             "measurements": result,
             "analysis": side_analysis,
             "annotated_image": f"data:image/jpeg;base64,{side_b64}" if side_b64 else None,
+            "standard_compare": comp_data if comp_data else None,
+            "compare_image": f"data:image/jpeg;base64,{compare_b64}" if compare_b64 else None,
         }
     except Exception as e:
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)

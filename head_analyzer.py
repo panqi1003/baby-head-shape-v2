@@ -1004,6 +1004,21 @@ def analyze_head_shape(
     result.success = True
     result.measurements = measurements
     result.annotated_image = annotated
+
+    # 标准头型对比
+    try:
+        from standard_compare import draw_comparison
+        comp_img, comp_data = draw_comparison(image, head_contour, view='top')
+        _, comp_buf = cv2.imencode('.jpg', comp_img, [cv2.IMWRITE_JPEG_QUALITY, 85])
+        import base64
+        result.standard_compare = {
+            "image": f"data:image/jpeg;base64,{base64.b64encode(comp_buf).decode('utf-8')}",
+            "similarity_score": comp_data["similarity_score"],
+            "ci_deviation": comp_data.get("ci_deviation", 0),
+        }
+    except Exception:
+        result.standard_compare = None
+
     return result
 
 
