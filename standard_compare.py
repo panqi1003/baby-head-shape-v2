@@ -15,36 +15,15 @@ import numpy as np
 
 _STD_CONTOURS = {}  # 延迟加载缓存
 
-def _load_std_contour(view, smooth=True):
-    """加载从标准头型图提取的轮廓。俯视图做椭圆拟合去十字线凸起。"""
+def _load_std_contour(view):
+    """加载从标准头型图提取并经清理的轮廓(无十字线凸起)"""
     import os
-    key = {'top': 'top', 'side': 'side_left'}.get(view, 'top')
-    cache_key = f"{view}_smooth" if smooth else view
-    if cache_key not in _STD_CONTOURS:
-        path = os.path.join(os.path.dirname(__file__), '标准头型', f'std_{key}.npy')
-        if os.path.exists(path):
-            raw = np.load(path, allow_pickle=True)
-            if smooth and view == 'top':
-                # 俯视图: 椭圆拟合去十字线凸起
-                pts = raw.reshape(-1, 2).astype(np.float32)
-                if len(pts) >= 5:
-                    ellipse = cv2.fitEllipse(pts)
-                    # 从椭圆参数生成平滑轮廓 (200点)
-                    (cx, cy), (major, minor), angle = ellipse
-                    angles = np.linspace(0, 2 * np.pi, 200)
-                    ex = (cx + major/2 * np.cos(angles) * np.cos(np.radians(angle))
-                          - minor/2 * np.sin(angles) * np.sin(np.radians(angle)))
-                    ey = (cy + major/2 * np.cos(angles) * np.sin(np.radians(angle))
-                          + minor/2 * np.sin(angles) * np.cos(np.radians(angle)))
-                    smooth_contour = np.column_stack([ex, ey]).astype(np.float32).reshape(-1, 1, 2)
-                    _STD_CONTOURS[cache_key] = smooth_contour.astype(np.int32)
-                else:
-                    _STD_CONTOURS[cache_key] = raw
-            else:
-                _STD_CONTOURS[cache_key] = raw
-        else:
-            _STD_CONTOURS[cache_key] = None
-    return _STD_CONTOURS[cache_key]
+    if view not in _STD_CONTOURS:
+        # 俯视用清理版, 侧面用原始提取版
+        fname = 'std_top_clean' if view == 'top' else f"std_{'side_left' if view == 'side' else 'top'}"
+        path = os.path.join(os.path.dirname(__file__), '标准头型', f'{fname}.npy')
+        _STD_CONTOURS[view] = np.load(path, allow_pickle=True) if os.path.exists(path) else None
+    return _STD_CONTOURS[view]
 
 
 def _align_and_scale_contour(std_contour, user_contour, h, w):
