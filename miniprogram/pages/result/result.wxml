@@ -52,7 +52,7 @@
         <van-tag wx:else type="danger" size="mini">相似度 {{topSimilarity}}%</van-tag>
       </view>
       <image src="{{topCompareImg}}" class="compare-img" mode="widthFix" />
-      <text class="compare-legend">绿线=实测轮廓 | 白虚线=标准椭圆(CI=78)</text>
+      <text class="compare-legend">绿线=实测 | 白线=标准头型</text>
     </view>
 
     <view wx:if="{{!hasReference}}" class="scale-warn">
@@ -113,6 +113,18 @@
       <van-icon name="records" size="28rpx" color="#6366f1" />
       <text class="analysis-text">{{leftAnalysis.detail}}</text>
     </view>
+    <!-- 左侧标准对比 -->
+    <view wx:if="{{leftCompareImg}}" class="compare-section">
+      <view class="compare-head">
+        <van-icon name="chart-trending-o" size="28rpx" color="#8b5cf6" />
+        <text class="compare-title">标准头型对比</text>
+        <van-tag wx:if="{{leftSimilarity >= 70}}" type="success" size="mini">相似度 {{leftSimilarity}}%</van-tag>
+        <van-tag wx:elif="{{leftSimilarity >= 40}}" type="warning" size="mini">相似度 {{leftSimilarity}}%</van-tag>
+        <van-tag wx:else type="danger" size="mini">相似度 {{leftSimilarity}}%</van-tag>
+      </view>
+      <image src="{{leftCompareImg}}" class="compare-img" mode="widthFix" />
+      <text class="compare-legend">绿线=实测 | 白线=标准头型</text>
+    </view>
   </view>
 
   <!-- ====== 3. 右侧面图分析 ====== -->
@@ -126,6 +138,18 @@
     <view class="analysis-box side-box">
       <van-icon name="records" size="28rpx" color="#6366f1" />
       <text class="analysis-text">{{rightAnalysis.detail}}</text>
+    </view>
+    <!-- 右侧标准对比 -->
+    <view wx:if="{{rightCompareImg}}" class="compare-section">
+      <view class="compare-head">
+        <van-icon name="chart-trending-o" size="28rpx" color="#8b5cf6" />
+        <text class="compare-title">标准头型对比</text>
+        <van-tag wx:if="{{rightSimilarity >= 70}}" type="success" size="mini">相似度 {{rightSimilarity}}%</van-tag>
+        <van-tag wx:elif="{{rightSimilarity >= 40}}" type="warning" size="mini">相似度 {{rightSimilarity}}%</van-tag>
+        <van-tag wx:else type="danger" size="mini">相似度 {{rightSimilarity}}%</van-tag>
+      </view>
+      <image src="{{rightCompareImg}}" class="compare-img" mode="widthFix" />
+      <text class="compare-legend">绿线=实测 | 白线=标准头型</text>
     </view>
   </view>
 

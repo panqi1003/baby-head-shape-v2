@@ -47,12 +47,16 @@ Page({
       // 左侧面
       hasLeftSide: !!(data.sideLeft && data.sideLeft.analysis),
       leftAnnotatedImg: (data.sideLeft && data.sideLeft.annotated_image) || '',
+      leftCompareImg: (data.sideLeft && data.sideLeft.compare_image) || '',
+      leftSimilarity: (data.sideLeft && data.sideLeft.standard_compare && data.sideLeft.standard_compare.similarity_score) || 0,
       leftAnalysis: (data.sideLeft && data.sideLeft.analysis) || {},
       leftTagType: flatToTag[(data.sideLeft && data.sideLeft.analysis && data.sideLeft.analysis.flatness_category)] || 'primary',
 
       // 右侧面
       hasRightSide: !!(data.sideRight && data.sideRight.analysis),
       rightAnnotatedImg: (data.sideRight && data.sideRight.annotated_image) || '',
+      rightCompareImg: (data.sideRight && data.sideRight.compare_image) || '',
+      rightSimilarity: (data.sideRight && data.sideRight.standard_compare && data.sideRight.standard_compare.similarity_score) || 0,
       rightAnalysis: (data.sideRight && data.sideRight.analysis) || {},
       rightTagType: flatToTag[(data.sideRight && data.sideRight.analysis && data.sideRight.analysis.flatness_category)] || 'primary',
 
