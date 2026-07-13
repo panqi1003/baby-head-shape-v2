@@ -18,6 +18,28 @@ Page({
   takeLeftSidePhoto() { this.setData({ photoType: 'side' }); wx.navigateTo({ url: '/pages/camera/camera?type=side&side=left' }) },
   takeRightSidePhoto() { this.setData({ photoType: 'side' }); wx.navigateTo({ url: '/pages/camera/camera?type=side&side=right' }) },
 
+  // 从相册选择照片
+  chooseFromAlbum(e) {
+    const type = e.currentTarget.dataset.type
+    const that = this
+    wx.chooseMedia({
+      count: 1,
+      mediaType: ['image'],
+      sourceType: ['album'],
+      success(res) {
+        const path = res.tempFiles[0].tempFilePath
+        if (type === 'top') {
+          that.setData({ topPhoto: path })
+          that.checkReference(path)
+        } else if (type === 'left') {
+          that.setData({ leftSidePhoto: path })
+        } else if (type === 'right') {
+          that.setData({ rightSidePhoto: path })
+        }
+      }
+    })
+  },
+
   onShow() {
     const app = getApp()
     const top = app.globalData._cameraTopPhoto

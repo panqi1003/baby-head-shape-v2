@@ -70,11 +70,12 @@
       <text class="photo-label">俯视图</text>
       <van-tag type="danger" size="mini">必填</van-tag>
     </view>
-    <view class="photo-box" bindtap="takeTopPhoto">
+    <view class="photo-box" bindtap="takeTopPhoto" bindlongpress="chooseFromAlbum" data-type="top">
       <image wx:if="{{topPhoto}}" src="{{topPhoto}}" class="photo-preview" mode="aspectFill" />
       <view wx:else class="photo-placeholder">
         <van-icon name="add-o" size="48rpx" color="#cbd5e1" />
         <text class="photo-text">点击拍摄</text>
+        <text class="photo-hint">长按选相册</text>
       </view>
     </view>
 
@@ -86,19 +87,21 @@
     <view class="side-row">
       <view class="side-half">
         <text class="side-mini-label">面朝左</text>
-        <view class="photo-box-small" bindtap="takeLeftSidePhoto">
+        <view class="photo-box-small" bindtap="takeLeftSidePhoto" bindlongpress="chooseFromAlbum" data-type="left">
           <image wx:if="{{leftSidePhoto}}" src="{{leftSidePhoto}}" class="photo-preview" mode="aspectFill" />
           <view wx:else class="photo-placeholder-small">
             <van-icon name="add-o" size="36rpx" color="#cbd5e1" />
+            <text class="photo-hint-small">长按选相册</text>
           </view>
         </view>
       </view>
       <view class="side-half">
         <text class="side-mini-label">面朝右</text>
-        <view class="photo-box-small" bindtap="takeRightSidePhoto">
+        <view class="photo-box-small" bindtap="takeRightSidePhoto" bindlongpress="chooseFromAlbum" data-type="right">
           <image wx:if="{{rightSidePhoto}}" src="{{rightSidePhoto}}" class="photo-preview" mode="aspectFill" />
           <view wx:else class="photo-placeholder-small">
             <van-icon name="add-o" size="36rpx" color="#cbd5e1" />
+            <text class="photo-hint-small">长按选相册</text>
           </view>
         </view>
       </view>
