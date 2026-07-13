@@ -13,37 +13,38 @@ import numpy as np
 # PART 1: 加载标准头型轮廓
 # ============================================================
 
-_STD_CONTOURS = {}  # 延迟加载缓存
+_STD_ELLIPSE = {}  # 俯视拟合椭圆缓存
 
 def _load_std_contour(view):
-    """加载从标准头型图提取并经清理的轮廓(无十字线凸起)"""
+    """加载标准头型轮廓。俯视返回拟合椭圆参数, 侧面返回原始轮廓。"""
     import os
-    if view not in _STD_CONTOURS:
-        # 俯视用清理版, 侧面用原始提取版
-        fname = 'std_top_clean' if view == 'top' else f"std_{'side_left' if view == 'side' else 'top'}"
-        path = os.path.join(os.path.dirname(__file__), '标准头型', f'{fname}.npy')
-        _STD_CONTOURS[view] = np.load(path, allow_pickle=True) if os.path.exists(path) else None
-    return _STD_CONTOURS[view]
+    if view not in _STD_ELLIPSE:
+        std_dir = os.path.join(os.path.dirname(__file__), '标准头型')
+        if view == 'top':
+            # 俯视: 从提取轮廓拟合椭圆, 去凸起且保留标准图真实CI
+            path = os.path.join(std_dir, 'std_top.npy')
+            if os.path.exists(path):
+                raw = np.load(path, allow_pickle=True)
+                pts = raw.reshape(-1, 2).astype(np.float32)
+                if len(pts) >= 5:
+                    ellipse = cv2.fitEllipse(pts)
+                    _STD_ELLIPSE[view] = ellipse  # ((cx,cy),(major,minor),angle)
+                else:
+                    _STD_ELLIPSE[view] = None
+        else:
+            # 侧面: 加载原始提取轮廓
+            path = os.path.join(std_dir, 'std_side_left.npy')
+            _STD_ELLIPSE[view] = np.load(path, allow_pickle=True) if os.path.exists(path) else None
+    return _STD_ELLIPSE.get(view)
 
 
-def _align_and_scale_contour(std_contour, user_contour, h, w):
+def _align_and_scale_contour(std_data, user_contour, h, w):
     """
-    将标准轮廓动态缩放+平移到用户头型位置。
-    1. 计算用户头型的 bounding box 和中心
-    2. 标准轮廓等比缩放到匹配用户头型大小
-    3. 平移到用户头型中心
+    俯视: std_data = fitEllipse 参数, 生成平滑椭圆并缩放对齐
+    侧面: std_data = 原始轮廓, bounding box 缩放对齐
     """
-    if std_contour is None or user_contour is None or len(user_contour) < 10:
-        return None
-
-    # 标准轮廓的中心和大小
-    std_pts = std_contour.reshape(-1, 2).astype(np.float32)
-    std_cx = (std_pts[:, 0].min() + std_pts[:, 0].max()) / 2
-    std_cy = (std_pts[:, 1].min() + std_pts[:, 1].max()) / 2
-    std_w = std_pts[:, 0].max() - std_pts[:, 0].min()
-    std_h = std_pts[:, 1].max() - std_pts[:, 1].min()
-
-    if std_w < 5 or std_h < 5:
+    import os
+    if std_data is None or user_contour is None or len(user_contour) < 10:
         return None
 
     # 用户轮廓的中心和大小
@@ -51,18 +52,34 @@ def _align_and_scale_contour(std_contour, user_contour, h, w):
     user_cx = bx + bw // 2
     user_cy = by + bh // 2
 
-    # 缩放比例 (匹配用户头型尺寸, 保持标准形状比例)
-    scale = max(bw / std_w, bh / std_h)
-
-    # 变换: 先平移到原点, 缩放, 再平移到用户中心
-    aligned = std_pts.copy()
-    aligned[:, 0] -= std_cx
-    aligned[:, 1] -= std_cy
-    aligned *= scale
-    aligned[:, 0] += user_cx
-    aligned[:, 1] += user_cy
-
-    return aligned.astype(np.int32).reshape(-1, 1, 2)
+    # 判断是俯视椭圆还是侧面轮廓
+    if isinstance(std_data, tuple) and len(std_data) == 3:
+        # 俯视: fitEllipse 参数 ((cx,cy),(major,minor),angle)
+        (scx, scy), (major, minor), angle = std_data
+        # 用椭圆长短轴计算缩放, 精确匹配
+        scale = max(bw / major, bh / minor)
+        major_s = major * scale
+        minor_s = minor * scale
+        # 生成平滑椭圆 200点
+        angles = np.linspace(0, 2 * np.pi, 200)
+        rad = np.radians(angle)
+        ex = user_cx + major_s/2 * np.cos(angles) * np.cos(rad) - minor_s/2 * np.sin(angles) * np.sin(rad)
+        ey = user_cy + major_s/2 * np.cos(angles) * np.sin(rad) + minor_s/2 * np.sin(angles) * np.cos(rad)
+        return np.column_stack([ex, ey]).astype(np.int32).reshape(-1, 1, 2)
+    else:
+        # 侧面: bounding box 缩放
+        std_pts = std_data.reshape(-1, 2).astype(np.float32)
+        sw = std_pts[:, 0].max() - std_pts[:, 0].min()
+        sh = std_pts[:, 1].max() - std_pts[:, 1].min()
+        if sw < 5 or sh < 5:
+            return None
+        scx = (std_pts[:, 0].min() + std_pts[:, 0].max()) / 2
+        scy = (std_pts[:, 1].min() + std_pts[:, 1].max()) / 2
+        scale = max(bw / sw, bh / sh)
+        aligned = std_pts.copy()
+        aligned[:, 0] = (aligned[:, 0] - scx) * scale + user_cx
+        aligned[:, 1] = (aligned[:, 1] - scy) * scale + user_cy
+        return aligned.astype(np.int32).reshape(-1, 1, 2)
 
 
 # ============================================================
