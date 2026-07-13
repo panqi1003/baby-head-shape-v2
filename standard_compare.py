@@ -13,28 +13,50 @@ import numpy as np
 # PART 1: 生成理想头型轮廓
 # ============================================================
 
-def _make_ideal_top_contour(h, w):
-    """生成理想俯视图轮廓 (椭圆, CI=78 标准头型)"""
+def _make_ideal_top_contour(user_contour, h, w):
+    """
+    生成理想俯视图轮廓，**动态匹配用户头型尺寸**。
+    取用户头型的长轴为基准，按 CI=78 比例生成标准椭圆。
+    """
     cx, cy = w // 2, h // 2
-    base = min(w, h) * 0.28
-    rx, ry = int(base * 0.78), int(base)  # CI=78 → width=0.78*length
+
+    # 从用户轮廓推算头型大小
+    if user_contour is not None and len(user_contour) >= 10:
+        bx, by, bw, bh = cv2.boundingRect(user_contour)
+        # 以用户头型长轴为基准
+        base = max(bw, bh) / 2
+    else:
+        base = min(w, h) * 0.28  # 回退到固定比例
+
+    # CI=78: 宽=0.78×长, 即 rx=0.78*ry (width=2*rx, length=2*ry)
+    rx = int(base * 0.78)
+    ry = int(base)
     angles = np.linspace(0, 2 * np.pi, 200)
     x = (cx + rx * np.cos(angles)).astype(np.int32)
     y = (cy + ry * np.sin(angles)).astype(np.int32)
     contour = np.column_stack([x, y]).reshape(-1, 1, 2)
-    return contour, (cx, cy, rx, ry)
+    return contour
 
 
-def _make_ideal_side_contour(h, w):
-    """生成理想侧面头型轮廓"""
+def _make_ideal_side_contour(user_contour, h, w):
+    """
+    生成理想侧面头型轮廓，**动态匹配用户头型尺寸**。
+    """
     cx, cy = w // 2, int(h * 0.45)
-    rx = int(w * 0.22)
-    ry = int(h * 0.22)
+
+    if user_contour is not None and len(user_contour) >= 10:
+        bx, by, bw, bh = cv2.boundingRect(user_contour)
+        base = max(bw, bh) / 2
+    else:
+        base = min(w, h) * 0.22
+
+    rx = int(base)
+    ry = int(base)
     angles = np.linspace(0, 2 * np.pi, 200)
     x = (cx + rx * np.cos(angles)).astype(np.int32)
     y = (cy + ry * np.sin(angles)).astype(np.int32)
     contour = np.column_stack([x, y]).reshape(-1, 1, 2)
-    return contour, (cx, cy, rx, ry)
+    return contour
 
 
 # ============================================================
@@ -108,7 +130,7 @@ def draw_comparison(image, user_contour, view='top', side_result=None):
     result = image.copy()
 
     if view == 'top':
-        ideal_contour, _ = _make_ideal_top_contour(h, w)
+        ideal_contour = _make_ideal_top_contour(user_contour, h, w)
         score, ci_dev = compute_top_similarity(user_contour)
         comp_data = {"similarity_score": score, "ci_deviation": ci_dev}
 
@@ -123,7 +145,7 @@ def draw_comparison(image, user_contour, view='top', side_result=None):
         _draw_text_box(result, lines, 12, h - 12, font_scale=0.55)
 
     else:
-        ideal_contour, _ = _make_ideal_side_contour(h, w)
+        ideal_contour = _make_ideal_side_contour(user_contour, h, w)
         score = compute_side_similarity(side_result)
         flatness = side_result.get('posterior_flatness', 0) if side_result else 0
         comp_data = {"similarity_score": score}
