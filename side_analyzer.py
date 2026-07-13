@@ -106,6 +106,9 @@ def analyze_side_profile(image: np.ndarray, guide_frame: bool = False) -> Option
     head_length_px = float(proj.max() - proj.min())
     head_height_px = float(np.dot(centered, v2).max() - np.dot(centered, v2).min())
 
+    # 序列化 contour 为列表 (numpy array 不能直接 JSON 序列化)
+    contour_list = head_contour.reshape(-1, 2).tolist() if head_contour is not None else None
+
     return {
         "posterior_flatness": flatness_score,
         "head_length_px": round(head_length_px, 1),
@@ -115,4 +118,5 @@ def analyze_side_profile(image: np.ndarray, guide_frame: bool = False) -> Option
         "curvature_cv": round(curvature_cv, 3),
         "expected_radius": round(expected_radius, 1),
         "scale_method": "引导框" if guide_frame else "默认估算",
+        "_head_contour": contour_list,  # 传给 app.py 画标注图，避免重复 SAM 调用
     }

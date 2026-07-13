@@ -190,12 +190,12 @@ def detect_head(image: np.ndarray, view: str = 'top',
     # (SAM 无法区分脸和身体——它们是视觉连续的。crop 是唯一可靠的方式)
     h_full = h_orig  # 保存原始高度用于恢复
     if view == 'side':
-        crop_h = int(h_orig * 0.55)
+        crop_h = int(h_orig * 0.60)  # 保留顶部 60% (MiMo: 55% 轻微切到头顶, 放宽到 60%)
         image = image[:crop_h, :]
         h_orig = crop_h
-        # 同步裁剪 guide_mask
-        if guide_mask is not None and guide_mask.shape[0] > crop_h:
-            guide_mask = guide_mask[:crop_h, :]
+        # 为裁剪后的尺寸重新创建 guide_mask (原mask中心在50%, crop后偏移到91%)
+        if guide_mask is not None:
+            guide_mask = create_guide_mask(crop_h, w_orig, 'side')
 
     # 缩小到 540px
     max_side = 540
@@ -332,5 +332,9 @@ def detect_head(image: np.ndarray, view: str = 'top',
         padded = np.zeros((h_full, w_orig), dtype=np.uint8)
         padded[:h_orig, :] = best_mask
         best_mask = padded
+        # 从 padding 后的 mask 重新提取 contour，确保坐标一致
+        cnts, _ = cv2.findContours(best_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        if cnts:
+            best_contour = max(cnts, key=cv2.contourArea)
 
     return best_mask, best_contour

@@ -151,14 +151,13 @@ async def analyze_side(image: UploadFile = File(...), guide_frame: bool = Form(F
         if not result:
             return {"success": False, "error": "侧面分析失败"}
 
-        from sam_detector import detect_head, create_guide_mask
-        h, w = img.shape[:2]
-        guide_mask = create_guide_mask(h, w, 'side') if guide_frame else None
-        sam_out = detect_head(img, view='side', guide_mask=guide_mask)
+        # 复用 analyze_side_profile 返回的 contour，避免重复 SAM 调用
+        contour_list = result.pop("_head_contour", None)
         side_b64 = None
-        if sam_out:
+        if contour_list and len(contour_list) >= 20:
+            contour = np.array(contour_list, dtype=np.int32).reshape(-1, 1, 2)
             sa = img.copy()
-            cv2.drawContours(sa, [sam_out[1]], -1, (0, 200, 80), 2)
+            cv2.drawContours(sa, [contour], -1, (0, 200, 80), 2)
             _, sb = cv2.imencode('.jpg', sa, [cv2.IMWRITE_JPEG_QUALITY, 85])
             side_b64 = base64.b64encode(sb).decode('utf-8')
 

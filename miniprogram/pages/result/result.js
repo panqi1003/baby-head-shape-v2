@@ -36,6 +36,7 @@ Page({
     this.setData({
       topAnnotatedImg: top.annotated_image || '',
       scaleNote: top.scale_note || '',
+      hasReference: !!top.has_reference,  // 修复: 从后端数据读取参照物检测结果
       topCI: (m.ci || 0).toFixed(1), topCVAI: (m.cvai || 0).toFixed(1), topCVA: (m.cva_mm || 0).toFixed(1),
       topLength: (m.head_length_mm || 0).toFixed(1), topWidth: (m.head_width_mm || 0).toFixed(1),
       topCirc: (m.head_circumference_mm || 0).toFixed(1),
