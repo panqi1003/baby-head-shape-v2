@@ -149,25 +149,23 @@ def _merge_point_masks(model, image_small, points, h, w, img_center, img_area):
     return hull_mask, contour, score
 
 
-def create_guide_mask(h, w, view='top'):
+def create_guide_mask(h, w, view='top', center_y=0.55):
     """
     创建引导框椭圆 mask，排除背景干扰。
-    椭圆内=255，椭圆外=0。
-    比例与相机页 cover-view 引导框一致，外加 15% 余量。
+    center_y: 椭圆中心在图像高度的比例 (俯视=0.5, 侧面=0.55 头部偏上)
     """
-    cx, cy = w // 2, h // 2
+    cx = w // 2
+    cy = int(h * (0.5 if view == 'top' else center_y))
     if view == 'top':
-        # 俯视: 380×460 rpx, 约占屏幕 51%×61% → 换算像素
-        rx = int(w * 0.28)   # 56% of width (380/750*1.1 ≈ 0.56, radius=0.28)
-        ry = int(h * 0.33)   # 66% of height
+        rx = int(w * 0.28)
+        ry = int(h * 0.33)
     else:
-        # 侧面: 360×440 rpx, 约占屏幕 48%×59%
-        rx = int(w * 0.26)   # 52% of width
-        ry = int(h * 0.31)   # 62% of height
+        rx = int(w * 0.26)
+        ry = int(h * 0.31)
 
     mask = np.zeros((h, w), dtype=np.uint8)
     cv2.ellipse(mask, (cx, cy), (rx, ry), 0, 0, 360, 255, -1)
-    # 边缘羽化 5px，避免硬边界干扰 SAM
+    # 边缘羽化，避免硬边界干扰 SAM
     mask = cv2.GaussianBlur(mask, (11, 11), 3)
     return mask
 
@@ -186,16 +184,16 @@ def detect_head(image: np.ndarray, view: str = 'top',
     """
     h_orig, w_orig = image.shape[:2]
 
-    # 侧面图: 裁掉底部 45%，物理排除身体区域
-    # (SAM 无法区分脸和身体——它们是视觉连续的。crop 是唯一可靠的方式)
-    h_full = h_orig  # 保存原始高度用于恢复
+    # 侧面图: 裁掉底部 25%，物理排除身体区域
+    # 头部通常在画面中上部，75% crop 保留完整头部同时排除腿部
+    h_full = h_orig
     if view == 'side':
-        crop_h = int(h_orig * 0.60)  # 保留顶部 60% (MiMo: 55% 轻微切到头顶, 放宽到 60%)
+        crop_h = int(h_orig * 0.75)
         image = image[:crop_h, :]
         h_orig = crop_h
-        # 为裁剪后的尺寸重新创建 guide_mask (原mask中心在50%, crop后偏移到91%)
+        # 重建 guide_mask: 中心在 crop 的 55% 处 (头部在画面中上位置)
         if guide_mask is not None:
-            guide_mask = create_guide_mask(crop_h, w_orig, 'side')
+            guide_mask = create_guide_mask(crop_h, w_orig, 'side', center_y=0.55)
 
     # 缩小到 540px
     max_side = 540
