@@ -140,9 +140,9 @@ def draw_comparison(image, user_contour, view='top', side_result=None):
         lines = [
             f"头型相似度 {score}%  {status}",
             f"头型指数偏差 {ci_dev}%  (正常 75-85)",
-            f"绿线=宝宝  白虚线=标准  {advice}",
+            f"绿线=宝宝  白线=标准  {advice}",
         ]
-        _draw_text_box(result, lines, 12, h - 12, font_scale=0.55)
+        _draw_text_box(result, lines, 12, h - 12, font_scale=0.60)
 
     else:
         ideal_contour = _make_ideal_side_contour(user_contour, h, w)
@@ -155,14 +155,30 @@ def draw_comparison(image, user_contour, view='top', side_result=None):
             f"后枕圆润度 {score}%  {status}",
             f"绿线=宝宝  白虚线=标准",
         ]
-        _draw_text_box(result, lines, 12, h - 12, font_scale=0.55)
+        _draw_text_box(result, lines, 12, h - 12, font_scale=0.60)
 
-    # 用户轮廓 - 绿色实线
+    # 用户轮廓 - 绿色实线 (加粗)
     if user_contour is not None and len(user_contour) >= 10:
-        cv2.drawContours(result, [user_contour], -1, (0, 200, 80), 2)
+        cv2.drawContours(result, [user_contour], -1, (0, 230, 50), 3)
 
-    # 理想轮廓 - 白色虚线
-    for i in range(0, len(ideal_contour), 6):
-        cv2.circle(result, tuple(ideal_contour[i][0]), 1, (255, 255, 255), -1)
+    # 理想轮廓 - 白色实线 + 深色阴影增强对比 (MiMo: 绿白重叠时需区分)
+    overlay = result.copy()
+    # 先画深色阴影 (偏移1px)
+    cv2.drawContours(overlay, [ideal_contour], -1, (40, 40, 40), 4)
+    cv2.addWeighted(overlay, 0.6, result, 0.4, 0, result)
+    # 再画白色线 (略细, 更不透明)
+    overlay2 = result.copy()
+    cv2.drawContours(overlay2, [ideal_contour], -1, (255, 255, 255), 2)
+    cv2.addWeighted(overlay2, 0.75, result, 0.25, 0, result)
+
+    # 图例 (右上角, 放大)
+    legend_y = 36
+    font_legend = cv2.FONT_HERSHEY_SIMPLEX
+    cv2.circle(result, (w - 130, legend_y), 7, (0, 230, 50), -1)
+    cv2.putText(result, "宝宝实测", (w - 116, legend_y + 6),
+                font_legend, 0.55, (255, 255, 255), 1, cv2.LINE_AA)
+    cv2.circle(result, (w - 130, legend_y + 28), 7, (255, 255, 255), -1)
+    cv2.putText(result, "标准头型", (w - 116, legend_y + 34),
+                font_legend, 0.55, (255, 255, 255), 1, cv2.LINE_AA)
 
     return result, comp_data
