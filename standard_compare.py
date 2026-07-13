@@ -81,10 +81,27 @@ def compute_side_similarity(result_dict):
 # PART 3: 叠加对比图
 # ============================================================
 
+def _draw_text_box(img, lines, x, y, font_scale=0.6, color=(255, 255, 255), bg_alpha=0.5):
+    """在图像上绘制带半透明背景的多行文字"""
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    thickness = 1
+    line_h = int(22 * font_scale)
+    h_total = line_h * len(lines) + 16
+
+    # 半透明背景
+    overlay = img.copy()
+    cv2.rectangle(overlay, (x - 8, y - h_total), (x + 280, y + 4), (30, 30, 30), -1)
+    cv2.addWeighted(overlay, bg_alpha, img, 1 - bg_alpha, 0, img)
+
+    for i, line in enumerate(lines):
+        cy = y - h_total + 14 + i * line_h
+        cv2.putText(img, line, (x, cy), font, font_scale, color, thickness, cv2.LINE_AA)
+
+
 def draw_comparison(image, user_contour, view='top', side_result=None):
     """
     在图像上叠加用户轮廓(绿色)和理想轮廓(白色虚线), 返回标注图和对比数据。
-    俯视图: 基于CI偏差评分
+    俯视图: 基于CI偏差评分 + 文字标注
     侧面图: 基于扁平度评分
     """
     h, w = image.shape[:2]
@@ -94,10 +111,29 @@ def draw_comparison(image, user_contour, view='top', side_result=None):
         ideal_contour, _ = _make_ideal_top_contour(h, w)
         score, ci_dev = compute_top_similarity(user_contour)
         comp_data = {"similarity_score": score, "ci_deviation": ci_dev}
+
+        # 文字标注 (家长友好措辞)
+        status = "头型接近标准" if score >= 85 else ("有轻微偏差" if score >= 60 else "偏差较明显")
+        advice = "继续保持!" if score >= 85 else ("建议多换睡姿" if score >= 60 else "建议关注调整")
+        lines = [
+            f"头型相似度 {score}%  {status}",
+            f"头型指数偏差 {ci_dev}%  (正常 75-85)",
+            f"绿线=宝宝  白虚线=标准  {advice}",
+        ]
+        _draw_text_box(result, lines, 12, h - 12, font_scale=0.55)
+
     else:
         ideal_contour, _ = _make_ideal_side_contour(h, w)
         score = compute_side_similarity(side_result)
+        flatness = side_result.get('posterior_flatness', 0) if side_result else 0
         comp_data = {"similarity_score": score}
+
+        status = "圆润" if score >= 70 else ("稍扁平" if score >= 40 else "明显扁平")
+        lines = [
+            f"后枕圆润度 {score}%  {status}",
+            f"绿线=宝宝  白虚线=标准",
+        ]
+        _draw_text_box(result, lines, 12, h - 12, font_scale=0.55)
 
     # 用户轮廓 - 绿色实线
     if user_contour is not None and len(user_contour) >= 10:
@@ -108,13 +144,3 @@ def draw_comparison(image, user_contour, view='top', side_result=None):
         cv2.circle(result, tuple(ideal_contour[i][0]), 1, (255, 255, 255), -1)
 
     return result, comp_data
-
-
-# ============================================================
-# PART 4: 图例说明文字
-# ============================================================
-
-LEGEND_TEXT = {
-    'top': "绿线=实测轮廓 | 白虚线=标准椭圆(CI=78)",
-    'side': "绿线=实测轮廓 | 白虚线=标准头型",
-}
