@@ -10,53 +10,62 @@ import numpy as np
 
 
 # ============================================================
-# PART 1: 生成理想头型轮廓
+# PART 1: 加载标准头型轮廓
 # ============================================================
 
-def _make_ideal_top_contour(user_contour, h, w):
+_STD_CONTOURS = {}  # 延迟加载缓存
+
+def _load_std_contour(view):
+    """加载从标准头型图提取的轮廓"""
+    import os
+    if view not in _STD_CONTOURS:
+        key = {'top': 'top', 'side': 'side_left'}.get(view, 'top')
+        path = os.path.join(os.path.dirname(__file__), '标准头型', f'std_{key}.npy')
+        if os.path.exists(path):
+            _STD_CONTOURS[view] = np.load(path, allow_pickle=True)
+        else:
+            _STD_CONTOURS[view] = None
+    return _STD_CONTOURS[view]
+
+
+def _align_and_scale_contour(std_contour, user_contour, h, w):
     """
-    生成理想俯视图轮廓，**动态匹配用户头型尺寸**。
-    取用户头型的长轴为基准，按 CI=78 比例生成标准椭圆。
+    将标准轮廓动态缩放+平移到用户头型位置。
+    1. 计算用户头型的 bounding box 和中心
+    2. 标准轮廓等比缩放到匹配用户头型大小
+    3. 平移到用户头型中心
     """
-    cx, cy = w // 2, h // 2
+    if std_contour is None or user_contour is None or len(user_contour) < 10:
+        return None
 
-    # 从用户轮廓推算头型大小
-    if user_contour is not None and len(user_contour) >= 10:
-        bx, by, bw, bh = cv2.boundingRect(user_contour)
-        # 以用户头型长轴为基准
-        base = max(bw, bh) / 2
-    else:
-        base = min(w, h) * 0.28  # 回退到固定比例
+    # 标准轮廓的中心和大小
+    std_pts = std_contour.reshape(-1, 2).astype(np.float32)
+    std_cx = (std_pts[:, 0].min() + std_pts[:, 0].max()) / 2
+    std_cy = (std_pts[:, 1].min() + std_pts[:, 1].max()) / 2
+    std_w = std_pts[:, 0].max() - std_pts[:, 0].min()
+    std_h = std_pts[:, 1].max() - std_pts[:, 1].min()
 
-    # CI=78: 宽=0.78×长, 即 rx=0.78*ry (width=2*rx, length=2*ry)
-    rx = int(base * 0.78)
-    ry = int(base)
-    angles = np.linspace(0, 2 * np.pi, 200)
-    x = (cx + rx * np.cos(angles)).astype(np.int32)
-    y = (cy + ry * np.sin(angles)).astype(np.int32)
-    contour = np.column_stack([x, y]).reshape(-1, 1, 2)
-    return contour
+    if std_w < 5 or std_h < 5:
+        return None
 
+    # 用户轮廓的中心和大小
+    bx, by, bw, bh = cv2.boundingRect(user_contour)
+    user_cx = bx + bw // 2
+    user_cy = by + bh // 2
 
-def _make_ideal_side_contour(user_contour, h, w):
-    """
-    生成理想侧面头型轮廓，**动态匹配用户头型尺寸**。
-    """
-    cx, cy = w // 2, int(h * 0.45)
+    # 缩放比例 (匹配用户头型尺寸, 保持标准形状比例)
+    # 乘以 1.15 略微放大 (MiMo: 原比例偏小 10-15%)
+    scale = max(bw / std_w, bh / std_h) * 1.15
 
-    if user_contour is not None and len(user_contour) >= 10:
-        bx, by, bw, bh = cv2.boundingRect(user_contour)
-        base = max(bw, bh) / 2
-    else:
-        base = min(w, h) * 0.22
+    # 变换: 先平移到原点, 缩放, 再平移到用户中心
+    aligned = std_pts.copy()
+    aligned[:, 0] -= std_cx
+    aligned[:, 1] -= std_cy
+    aligned *= scale
+    aligned[:, 0] += user_cx
+    aligned[:, 1] += user_cy
 
-    rx = int(base)
-    ry = int(base)
-    angles = np.linspace(0, 2 * np.pi, 200)
-    x = (cx + rx * np.cos(angles)).astype(np.int32)
-    y = (cy + ry * np.sin(angles)).astype(np.int32)
-    contour = np.column_stack([x, y]).reshape(-1, 1, 2)
-    return contour
+    return aligned.astype(np.int32).reshape(-1, 1, 2)
 
 
 # ============================================================
@@ -129,8 +138,15 @@ def draw_comparison(image, user_contour, view='top', side_result=None):
     h, w = image.shape[:2]
     result = image.copy()
 
+    # 加载标准轮廓 + 动态对齐
+    std_contour = _load_std_contour(view)
+    ideal_contour = _align_and_scale_contour(std_contour, user_contour, h, w)
+
+    # 回退: 对齐失败则不用白线
+    if ideal_contour is None:
+        return result, {"similarity_score": 0}
+
     if view == 'top':
-        ideal_contour = _make_ideal_top_contour(user_contour, h, w)
         score, ci_dev = compute_top_similarity(user_contour)
         comp_data = {"similarity_score": score, "ci_deviation": ci_dev}
 
@@ -145,7 +161,6 @@ def draw_comparison(image, user_contour, view='top', side_result=None):
         _draw_text_box(result, lines, 12, h - 12, font_scale=0.60)
 
     else:
-        ideal_contour = _make_ideal_side_contour(user_contour, h, w)
         score = compute_side_similarity(side_result)
         flatness = side_result.get('posterior_flatness', 0) if side_result else 0
         comp_data = {"similarity_score": score}
