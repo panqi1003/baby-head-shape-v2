@@ -32,13 +32,79 @@ def _score_mask(mask, h, w, img_center, img_area, view='top'):
     if area_ratio < 0.02 or area_ratio > 0.65:
         return 0, None
 
-    # 侧面图纵横比约束: 头部侧面为横向椭圆，高/宽 > 2.0 说明含身体
-    # 下限不做限制——婴儿头型差异大，放宽以免误杀正常轮廓
+def _trim_body_from_contour(contour, h):
+    """
+    垂直截断: 裁掉下巴以下的脖子/身体区域。
+    策略1: 质心上下高度比 >1.6 → 截断
+    策略2: 轮廓底部超过图像 60% → 硬截断 (侧面图头部不会这么低)
+    返回: (contour, was_trimmed)
+    """
+    if contour is None or len(contour) < 20:
+        return contour, False
+
+    M = cv2.moments(contour)
+    if M['m00'] == 0:
+        return contour, False
+    cy = M['m01'] / M['m00']
+
+    pts = contour.reshape(-1, 2)
+    y_vals = pts[:, 1]
+    y_min, y_max = y_vals.min(), y_vals.max()
+
+    upper_height = cy - y_min
+    lower_height = y_max - cy
+
+    cut_y = None
+
+    # 策略1: 质心以下超高 → 包含身体
+    if upper_height > 0 and lower_height > upper_height * 1.5:
+        cut_y = int(cy + upper_height * 1.3)
+
+    # 策略2: 底部超过 60% 图像高度 → 硬截断
+    if y_max > h * 0.60:
+        hard_cut = int(h * 0.60)
+        if cut_y is None or hard_cut < cut_y:
+            cut_y = hard_cut
+
+    if cut_y is not None:
+        pts = pts[pts[:, 1] <= cut_y]
+        if len(pts) >= 20:
+            return pts.reshape(-1, 1, 2).astype(np.int32), True
+
+    return contour, False
+
+
+def _score_mask(mask, h, w, img_center, img_area, view='top'):
+    """对单个 mask 评分，返回 (score, contour)"""
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if not contours:
+        return 0, None
+
+    contour = max(contours, key=cv2.contourArea)
+    area = cv2.contourArea(contour)
+    area_ratio = area / img_area
+    if area_ratio < 0.02 or area_ratio > 0.65:
+        return 0, None
+
+    # 侧面图纵横比约束 + 质心检查
     if view == 'side':
         bx, by, bw, bh = cv2.boundingRect(contour)
         aspect_hw = bh / max(bw, 1)
         if aspect_hw > 2.0:
-            return 0, None  # 太高了，包含身体(头+脖子+肩膀)
+            return 0, None
+
+    M = cv2.moments(contour)
+    if M['m00'] == 0:
+        return 0, None
+    cx, cy = M['m10'] / M['m00'], M['m01'] / M['m00']
+
+    # 侧面图质心位置: 应在图像上半部，否则含身体
+    if view == 'side' and cy > h * 0.55:
+        return 0, None
+
+    max_dist = math.sqrt(img_area) / 2
+    dist = math.sqrt((cx - img_center[0])**2 + (cy - img_center[1])**2)
+    center_score = max(0, 1.0 - dist / max_dist)
 
     M = cv2.moments(contour)
     if M['m00'] == 0:
@@ -370,7 +436,16 @@ def detect_head(image: np.ndarray, view: str = 'top',
     if best_mask is None or best_score < 0.3:
         return None
 
-    # ====== 后处理: 腐蚀 + Canny 边缘精调 ======
+    # ====== 后处理: 垂直截断 + 腐蚀 + Canny 边缘精调 ======
+    # 0. 侧面图: 垂直截断，裁掉下巴以下的脖子/身体 (MiMo: 轮廓延伸到胸口)
+    if view == 'side':
+        best_contour, trimmed = _trim_body_from_contour(best_contour, h)
+        # 只有真正截断了才重绘 mask
+        if trimmed:
+            trimmed_mask = np.zeros((h, w), dtype=np.uint8)
+            cv2.drawContours(trimmed_mask, [best_contour], -1, 255, -1)
+            best_mask = trimmed_mask
+
     # 1. 形态学腐蚀 1-2px，收紧轮廓 (MiMo: 轮廓偏大 5-10%)
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
     best_mask = cv2.erode(best_mask, kernel, iterations=1)
@@ -383,5 +458,13 @@ def detect_head(image: np.ndarray, view: str = 'top',
         cnts, _ = cv2.findContours(best_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         if cnts:
             best_contour = max(cnts, key=cv2.contourArea)
+
+    # 3. 侧面图最终截断: 在原始尺寸上再做一次硬截断 (防止 resize 丢失)
+    if view == 'side' and best_contour is not None and len(best_contour) >= 20:
+        best_contour, trimmed = _trim_body_from_contour(best_contour, h_orig)
+        if trimmed:
+            final_mask = np.zeros((h_orig, w_orig), dtype=np.uint8)
+            cv2.drawContours(final_mask, [best_contour], -1, 255, -1)
+            best_mask = final_mask
 
     return best_mask, best_contour
