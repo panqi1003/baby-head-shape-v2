@@ -39,7 +39,8 @@
   align-items: center; justify-content: center; gap: 10rpx;
 }
 .photo-text { color: #94a3b8; font-size: 28rpx; }
-.photo-hint { color: #cbd5e1; font-size: 20rpx; }
+.photo-hint { color: #cbd5e1; font-size: 22rpx; }
+.hint-divider { width: 80rpx; height: 2rpx; background: #f1f5f9; margin: 6rpx 0; }
 .photo-preview { width: 100%; height: 100%; }
 
 /* 侧面图并排 */
@@ -53,8 +54,11 @@
 }
 .photo-placeholder-small {
   width: 100%; height: 100%;
-  display: flex; align-items: center; justify-content: center;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 4rpx;
 }
+.photo-text-small { color: #94a3b8; font-size: 24rpx; }
+.photo-hint-small { color: #cbd5e1; font-size: 18rpx; }
 
 /* 输入 */
 .input-row {
