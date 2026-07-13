@@ -12,13 +12,14 @@ Page({
     photoType: '',
     hasReference: false,
     refChecked: false,
+    guideFrameActive: true,  // 相机拍照=true, 相册选择=false
   },
 
-  takeTopPhoto() { this.setData({ photoType: 'top' }); wx.navigateTo({ url: '/pages/camera/camera?type=top' }) },
-  takeLeftSidePhoto() { this.setData({ photoType: 'side' }); wx.navigateTo({ url: '/pages/camera/camera?type=side&side=left' }) },
-  takeRightSidePhoto() { this.setData({ photoType: 'side' }); wx.navigateTo({ url: '/pages/camera/camera?type=side&side=right' }) },
+  takeTopPhoto() { this.setData({ photoType: 'top', guideFrameActive: true }); wx.navigateTo({ url: '/pages/camera/camera?type=top' }) },
+  takeLeftSidePhoto() { this.setData({ photoType: 'side', guideFrameActive: true }); wx.navigateTo({ url: '/pages/camera/camera?type=side&side=left' }) },
+  takeRightSidePhoto() { this.setData({ photoType: 'side', guideFrameActive: true }); wx.navigateTo({ url: '/pages/camera/camera?type=side&side=right' }) },
 
-  // 从相册选择照片
+  // 从相册选择照片 (无引导框对齐, 比例估算降级)
   chooseFromAlbum(e) {
     const type = e.currentTarget.dataset.type
     const that = this
@@ -28,6 +29,7 @@ Page({
       sourceType: ['album'],
       success(res) {
         const path = res.tempFiles[0].tempFilePath
+        that.setData({ guideFrameActive: false })
         if (type === 'top') {
           that.setData({ topPhoto: path })
           that.checkReference(path)
@@ -108,7 +110,7 @@ Page({
     const formData = {
       use_reference: String(that.data.useReference),
       auto_detect: String(that.data.useReference),
-      guide_frame: 'true',  // 通过相机页拍摄，已用引导框对齐
+      guide_frame: String(that.data.guideFrameActive),  // 相机拍照=true, 相册=false
     }
     const age = String(that.data.ageMonths || '').trim()
     if (age) formData.age_months = age
@@ -170,7 +172,7 @@ Page({
         url: app.globalData.apiBase + '/analyze_side',
         filePath: filePath,
         name: 'image',
-        formData: { guide_frame: 'true', side: sideWhich },
+        formData: { guide_frame: String(that.data.guideFrameActive), side: sideWhich },
         success(res) {
           if (done) return; done = true; clearTimeout(timer); pending--
           try {
