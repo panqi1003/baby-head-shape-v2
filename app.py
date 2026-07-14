@@ -167,7 +167,7 @@ async def analyze_side(image: UploadFile = File(...), guide_frame: bool = Form(F
             # 标准对比图
             try:
                 from standard_compare import draw_comparison
-                comp_img, _ = draw_comparison(img, contour, view='side', side_result=result)
+                comp_img, _ = draw_comparison(img, contour, view='side', side_result=result, side=side or 'left')
                 _, cb = cv2.imencode('.jpg', comp_img, [cv2.IMWRITE_JPEG_QUALITY, 85])
                 compare_b64 = base64.b64encode(cb).decode('utf-8')
             except Exception:

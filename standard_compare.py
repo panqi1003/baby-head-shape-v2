@@ -15,27 +15,28 @@ import numpy as np
 
 _STD_ELLIPSE = {}  # 俯视拟合椭圆缓存
 
-def _load_std_contour(view):
-    """加载标准头型轮廓。俯视返回拟合椭圆参数, 侧面返回原始轮廓。"""
+def _load_std_contour(view, side='left'):
+    """加载标准头型轮廓。俯视返回拟合椭圆参数, 侧面返回原始轮廓(左/右)。"""
     import os
-    if view not in _STD_ELLIPSE:
+    cache_key = f"{view}_{side}"
+    if cache_key not in _STD_ELLIPSE:
         std_dir = os.path.join(os.path.dirname(__file__), '标准头型')
         if view == 'top':
-            # 俯视: 从提取轮廓拟合椭圆, 去凸起且保留标准图真实CI
             path = os.path.join(std_dir, 'std_top.npy')
             if os.path.exists(path):
                 raw = np.load(path, allow_pickle=True)
                 pts = raw.reshape(-1, 2).astype(np.float32)
                 if len(pts) >= 5:
                     ellipse = cv2.fitEllipse(pts)
-                    _STD_ELLIPSE[view] = ellipse  # ((cx,cy),(major,minor),angle)
+                    _STD_ELLIPSE[cache_key] = ellipse
                 else:
-                    _STD_ELLIPSE[view] = None
+                    _STD_ELLIPSE[cache_key] = None
         else:
-            # 侧面: 加载原始提取轮廓
-            path = os.path.join(std_dir, 'std_side_left.npy')
-            _STD_ELLIPSE[view] = np.load(path, allow_pickle=True) if os.path.exists(path) else None
-    return _STD_ELLIPSE.get(view)
+            # 侧面: 根据方向加载对应标准轮廓
+            fname = 'std_side_right.npy' if side == 'right' else 'std_side_left.npy'
+            path = os.path.join(std_dir, fname)
+            _STD_ELLIPSE[cache_key] = np.load(path, allow_pickle=True) if os.path.exists(path) else None
+    return _STD_ELLIPSE.get(cache_key)
 
 
 def _align_and_scale_contour(std_data, user_contour, h, w):
@@ -57,6 +58,9 @@ def _align_and_scale_contour(std_data, user_contour, h, w):
         bx, by, bw, bh = cv2.boundingRect(user_contour)
         user_cx, user_cy = bx + bw // 2, by + bh // 2
 
+    # 极坐标采样角度 (top和side共用)
+    phis = np.linspace(0, 2*np.pi, 360, endpoint=False)
+
     if isinstance(std_data, tuple) and len(std_data) == 3:
         # === Top view: median radius ratio (MiMo Pro algorithm) ===
         (_, _), (major, minor), angle = std_data
@@ -64,7 +68,6 @@ def _align_and_scale_contour(std_data, user_contour, h, w):
         rad = np.radians(angle)
 
         # 1. Standard ellipse 360-degree radius
-        phis = np.linspace(0, 2*np.pi, 360, endpoint=False)
         dphi = phis - rad
         cos_d = np.cos(dphi)
         sin_d = np.sin(dphi)
@@ -89,20 +92,35 @@ def _align_and_scale_contour(std_data, user_contour, h, w):
         ey = user_cy + new_a * np.cos(t) * np.sin(rad) + new_b * np.sin(t) * np.cos(rad)
         return np.column_stack([ex, ey]).astype(np.int32).reshape(-1, 1, 2)
     else:
-        # === Side view: bbox scaling ===
+        # === Side view: polar sampling same as top ===
         std_pts = std_data.reshape(-1, 2).astype(np.float32)
-        sw = std_pts[:, 0].max() - std_pts[:, 0].min()
-        sh = std_pts[:, 1].max() - std_pts[:, 1].min()
-        if sw < 5 or sh < 5:
-            return None
         scx = (std_pts[:, 0].min() + std_pts[:, 0].max()) / 2
         scy = (std_pts[:, 1].min() + std_pts[:, 1].max()) / 2
-        bx, by, bw, bh = cv2.boundingRect(user_contour)
-        ucx, ucy = bx + bw // 2, by + bh // 2
-        scale = max(bw / sw, bh / sh)
+        std_dx = std_pts[:, 0] - scx
+        std_dy = std_pts[:, 1] - scy
+
+        # 1. Standard contour -> polar -> 360 points
+        std_r = np.sqrt(std_dx**2 + std_dy**2)
+        std_theta = np.arctan2(std_dy, std_dx)
+        order = np.argsort(std_theta)
+        std_r_interp = np.interp(phis, std_theta[order], std_r[order], period=2*np.pi)
+
+        # 2. User contour -> polar -> 360 points (already computed above for user)
+        dx = user_pts[:, 0] - user_cx
+        dy = user_pts[:, 1] - user_cy
+        r_user_raw = np.sqrt(dx**2 + dy**2)
+        theta = np.arctan2(dy, dx)
+        order = np.argsort(theta)
+        r_user = np.interp(phis, theta[order], r_user_raw[order], period=2*np.pi)
+
+        # 3. 60th percentile scale
+        ratios = r_user / (std_r_interp + 1e-10)
+        scale = np.percentile(ratios, 60)
+
+        # 4. Scale and align
         aligned = std_pts.copy()
-        aligned[:, 0] = (aligned[:, 0] - scx) * scale + ucx
-        aligned[:, 1] = (aligned[:, 1] - scy) * scale + ucy
+        aligned[:, 0] = (std_dx * scale) + user_cx
+        aligned[:, 1] = (std_dy * scale) + user_cy
         return aligned.astype(np.int32).reshape(-1, 1, 2)
 def compute_top_similarity(user_contour):
     """
@@ -161,7 +179,7 @@ def _draw_text_box(img, lines, x, y, font_scale=0.6, color=(255, 255, 255), bg_a
         cv2.putText(img, line, (x, cy), font, font_scale, color, thickness, cv2.LINE_AA)
 
 
-def draw_comparison(image, user_contour, view='top', side_result=None):
+def draw_comparison(image, user_contour, view='top', side_result=None, side='left'):
     """
     在图像上叠加用户轮廓(绿色)和理想轮廓(白色虚线), 返回标注图和对比数据。
     俯视图: 基于CI偏差评分 + 文字标注
@@ -171,7 +189,7 @@ def draw_comparison(image, user_contour, view='top', side_result=None):
     result = image.copy()
 
     # 加载标准轮廓 + 动态对齐
-    std_contour = _load_std_contour(view)
+    std_contour = _load_std_contour(view, side)
     ideal_contour = _align_and_scale_contour(std_contour, user_contour, h, w)
 
     # 回退: 对齐失败则不用白线

@@ -105,9 +105,6 @@ def analyze_side_profile(image: np.ndarray) -> Optional[Dict]:
     # 序列化 contour 为列表 (numpy array 不能直接 JSON 序列化)
     contour_list = head_contour.reshape(-1, 2).tolist() if head_contour is not None else None
 
-    # 标准头型对比 (先建 result_dict 再用)
-    comp_data = None
-
     result_dict = {
         "posterior_flatness": flatness_score,
         "head_length_px": round(head_length_px, 1),
