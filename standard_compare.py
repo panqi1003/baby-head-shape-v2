@@ -168,69 +168,76 @@ def _draw_text_box(img, lines, x, y, font_scale=0.6, color=(255, 255, 255), bg_a
 
 def draw_comparison(image, user_contour, view='top', side_result=None, side='left'):
     """
-    在图像上叠加用户轮廓(绿色)和理想轮廓(白色虚线), 返回标注图和对比数据。
-    俯视图: 基于CI偏差评分 + 文字标注
-    侧面图: 基于扁平度评分
+    俯视图: 标准椭圆+动态对齐
+    侧面图: PCA理想圆弧(不依赖标准图片)
     """
     h, w = image.shape[:2]
     result = image.copy()
-
-    # 加载标准轮廓 + 动态对齐
-    std_contour = _load_std_contour(view, side)
-    ideal_contour = _align_and_scale_contour(std_contour, user_contour, h, w)
-
-    # 回退: 对齐失败则不用白线
-    if ideal_contour is None:
-        return result, {"similarity_score": 0}
+    ideal_contour = None
 
     if view == 'top':
+        # === 俯视图: 标准椭圆 ===
+        std_contour = _load_std_contour(view)
+        ideal_contour = _align_and_scale_contour(std_contour, user_contour, h, w)
+        if ideal_contour is None:
+            return result, {"similarity_score": 0}
+
         score, ci_dev = compute_top_similarity(user_contour)
         comp_data = {"similarity_score": score, "ci_deviation": ci_dev}
-
-        # 文字标注 (家长友好措辞)
         status = "头型接近标准" if score >= 85 else ("有轻微偏差" if score >= 60 else "偏差较明显")
         advice = "继续保持!" if score >= 85 else ("建议多换睡姿" if score >= 60 else "建议关注调整")
-        lines = [
+        _draw_text_box(result, [
             f"头型相似度 {score}%  {status}",
             f"头型指数偏差 {ci_dev}%  (正常 75-85)",
             f"绿线=宝宝  白线=标准  {advice}",
-        ]
-        _draw_text_box(result, lines, 12, h - 12, font_scale=0.60)
+        ], 12, h - 12, font_scale=0.60)
+
+        # 白线轮廓
+        overlay = result.copy()
+        cv2.drawContours(overlay, [ideal_contour], -1, (40, 40, 40), 4)
+        cv2.addWeighted(overlay, 0.6, result, 0.4, 0, result)
+        overlay2 = result.copy()
+        cv2.drawContours(overlay2, [ideal_contour], -1, (255, 255, 255), 2)
+        cv2.addWeighted(overlay2, 0.75, result, 0.25, 0, result)
 
     else:
+        # === 侧面: PCA理想圆弧 ===
         score = compute_side_similarity(side_result)
-        flatness = side_result.get('posterior_flatness', 0) if side_result else 0
         comp_data = {"similarity_score": score}
 
-        status = "圆润" if score >= 70 else ("稍扁平" if score >= 40 else "明显扁平")
-        lines = [
-            f"后枕圆润度 {score}%  {status}",
-            f"绿线=宝宝  白虚线=标准",
-        ]
-        _draw_text_box(result, lines, 12, h - 12, font_scale=0.60)
+        if side_result and user_contour is not None and len(user_contour) >= 10:
+            center = side_result.get('_pca_center')
+            expected_r = side_result.get('expected_radius', 100)
+            back_angles = side_result.get('_back_angles', [-90, 90])
+            if center and expected_r > 10:
+                cx, cy = center[0], center[1]
+                ang_start, ang_end = back_angles
+                arc_a = np.linspace(np.radians(ang_start), np.radians(ang_end), 100)
+                arc_x = cx + expected_r * np.cos(arc_a)
+                arc_y = cy + expected_r * np.sin(arc_a)
+                ideal_contour = np.column_stack([arc_x, arc_y]).astype(np.int32).reshape(-1, 1, 2)
+                # 白弧 + 阴影
+                for i in range(len(ideal_contour) - 1):
+                    cv2.line(result, tuple(ideal_contour[i][0]), tuple(ideal_contour[i+1][0]), (60, 60, 60), 5)
+                for i in range(len(ideal_contour) - 1):
+                    cv2.line(result, tuple(ideal_contour[i][0]), tuple(ideal_contour[i+1][0]), (255, 255, 255), 3)
 
-    # 用户轮廓 - 绿色实线 (加粗)
+        status = "圆润" if score >= 70 else ("稍扁平" if score >= 40 else "明显扁平")
+        _draw_text_box(result, [
+            f"后枕圆润度 {score}%  {status}",
+            f"白弧=理想弧度  绿线=实测",
+        ], 12, h - 12, font_scale=0.60)
+
+    # 用户轮廓 - 绿色实线
     if user_contour is not None and len(user_contour) >= 10:
         cv2.drawContours(result, [user_contour], -1, (0, 230, 50), 3)
 
-    # 理想轮廓 - 白色实线 + 深色阴影增强对比 (MiMo: 绿白重叠时需区分)
-    overlay = result.copy()
-    # 先画深色阴影 (偏移1px)
-    cv2.drawContours(overlay, [ideal_contour], -1, (40, 40, 40), 4)
-    cv2.addWeighted(overlay, 0.6, result, 0.4, 0, result)
-    # 再画白色线 (略细, 更不透明)
-    overlay2 = result.copy()
-    cv2.drawContours(overlay2, [ideal_contour], -1, (255, 255, 255), 2)
-    cv2.addWeighted(overlay2, 0.75, result, 0.25, 0, result)
-
-    # 图例 (右上角, 放大)
+    # 图例
     legend_y = 36
     font_legend = cv2.FONT_HERSHEY_SIMPLEX
     cv2.circle(result, (w - 130, legend_y), 7, (0, 230, 50), -1)
-    cv2.putText(result, "宝宝实测", (w - 116, legend_y + 6),
-                font_legend, 0.55, (255, 255, 255), 1, cv2.LINE_AA)
+    cv2.putText(result, "宝宝实测", (w - 116, legend_y + 6), font_legend, 0.55, (255, 255, 255), 1, cv2.LINE_AA)
     cv2.circle(result, (w - 130, legend_y + 28), 7, (255, 255, 255), -1)
-    cv2.putText(result, "标准头型", (w - 116, legend_y + 34),
-                font_legend, 0.55, (255, 255, 255), 1, cv2.LINE_AA)
+    cv2.putText(result, "标准", (w - 116, legend_y + 34), font_legend, 0.55, (255, 255, 255), 1, cv2.LINE_AA)
 
     return result, comp_data

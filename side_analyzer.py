@@ -105,6 +105,12 @@ def analyze_side_profile(image: np.ndarray) -> Optional[Dict]:
     # 序列化 contour 为列表 (numpy array 不能直接 JSON 序列化)
     contour_list = head_contour.reshape(-1, 2).tolist() if head_contour is not None else None
 
+    # 后枕部角度范围 (用于画标准圆弧)
+    back_pts_arr = centered[back_mask]
+    back_angles = np.arctan2(back_pts_arr[:, 1], back_pts_arr[:, 0])
+    back_angle_start = float(np.rad2deg(back_angles.min()))
+    back_angle_end = float(np.rad2deg(back_angles.max()))
+
     result_dict = {
         "posterior_flatness": flatness_score,
         "head_length_px": round(head_length_px, 1),
@@ -115,6 +121,8 @@ def analyze_side_profile(image: np.ndarray) -> Optional[Dict]:
         "expected_radius": round(expected_radius, 1),
         "scale_method": "默认估算",
         "_head_contour": contour_list,
+        "_pca_center": [float(cx), float(cy)],
+        "_back_angles": [back_angle_start, back_angle_end],
     }
 
     # 标准头型对比 (基于扁平度评分)
