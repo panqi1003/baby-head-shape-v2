@@ -117,11 +117,15 @@ def _align_and_scale_contour(std_data, user_contour, h, w):
         ratios = r_user / (std_r_interp + 1e-10)
         scale = np.percentile(ratios, 60)
 
-        # 4. Scale and align
+        # 4. Scale, align, and close contour
         aligned = std_pts.copy()
         aligned[:, 0] = (std_dx * scale) + user_cx
         aligned[:, 1] = (std_dy * scale) + user_cy
-        return aligned.astype(np.int32).reshape(-1, 1, 2)
+        result = aligned.astype(np.int32).reshape(-1, 1, 2)
+        # 闭合: 头尾不相连时补上第一点
+        if len(result) > 0 and np.linalg.norm(result[0] - result[-1]) > 3:
+            result = np.vstack([result, result[0:1]])
+        return result
 def compute_top_similarity(user_contour):
     """
     俯视图相似度: 基于 CI 偏离度
