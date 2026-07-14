@@ -47,25 +47,45 @@ def _align_and_scale_contour(std_data, user_contour, h, w):
     if std_data is None or user_contour is None or len(user_contour) < 10:
         return None
 
-    # 用户轮廓的中心和大小
-    bx, by, bw, bh = cv2.boundingRect(user_contour)
-    user_cx = bx + bw // 2
-    user_cy = by + bh // 2
+    # 用户轮廓中心: 用拟合椭圆中心(比bbox中心更稳定)
+    user_pts = user_contour.reshape(-1, 2).astype(np.float32)
+    if len(user_pts) >= 5:
+        u_ellipse = cv2.fitEllipse(user_pts)
+        (user_cx, user_cy), (u_major, u_minor), u_angle = u_ellipse
+    else:
+        bx, by, bw, bh = cv2.boundingRect(user_contour)
+        user_cx = bx + bw // 2
+        user_cy = by + bh // 2
 
     # 判断是俯视椭圆还是侧面轮廓
     if isinstance(std_data, tuple) and len(std_data) == 3:
         # 俯视: fitEllipse 参数 ((cx,cy),(major,minor),angle)
         (scx, scy), (major, minor), angle = std_data
-        # 取绿线所有点到中心的最大距离, 确保白线椭圆完全包住绿线
-        user_pts = user_contour.reshape(-1, 2).astype(np.float32)
-        dists = np.sqrt((user_pts[:, 0] - user_cx)**2 + (user_pts[:, 1] - user_cy)**2)
-        max_r = dists.max()
-        # 标准椭圆的等效半径 (取短半轴确保在所有方向都覆盖)
-        std_min_r = min(major, minor) / 2
-        scale = (max_r / std_min_r) * 1.07 if std_min_r > 0 else max(bw / major, bh / minor)
+
+        # 逐角度检查: 标准椭圆半径 ≥ 绿线距离
+        max_ratio = 0
+        if len(user_pts) >= 10:
+            rad_a = np.radians(angle)
+            for px, py in user_pts:
+                dx = px - user_cx
+                dy = py - user_cy
+                # 该点对应的标准椭圆半径
+                cos_t = np.cos(rad_a)
+                sin_t = np.sin(rad_a)
+                # 将(dx,dy)旋转到标准椭圆坐标系
+                rx = dx * cos_t + dy * sin_t
+                ry = -dx * sin_t + dy * cos_t
+                # 椭圆方程: (rx/a)²+(ry/b)²=1, 当前点到中心的距离对应半径
+                if abs(rx) > 0 or abs(ry) > 0:
+                    r_ellipse = 1.0 / np.sqrt((rx/(major/2))**2 + (ry/(minor/2))**2 + 1e-10)
+                    r_actual = np.sqrt(dx**2 + dy**2)
+                    ratio = r_actual / r_ellipse
+                    max_ratio = max(max_ratio, ratio)
+        scale = max(max_ratio, max(u_major / major, u_minor / minor)) if max_ratio > 0 else max(u_major / major, u_minor / minor)
+        scale *= 1.02  # 2% 微小边距
+
         major_s = major * scale
         minor_s = minor * scale
-        # 生成平滑椭圆 200点
         angles = np.linspace(0, 2 * np.pi, 200)
         rad = np.radians(angle)
         ex = user_cx + major_s/2 * np.cos(angles) * np.cos(rad) - minor_s/2 * np.sin(angles) * np.sin(rad)
