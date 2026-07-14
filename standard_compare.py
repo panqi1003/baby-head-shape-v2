@@ -40,59 +40,56 @@ def _load_std_contour(view):
 
 def _align_and_scale_contour(std_data, user_contour, h, w):
     """
-    俯视: std_data = fitEllipse 参数, 生成平滑椭圆并缩放对齐
-    侧面: std_data = 原始轮廓, bounding box 缩放对齐
+    MiMo Pro design: median radius ratio scaling.
+    Top: 360-point polar sampling, median(r_user/r_std), robust to hair spikes.
+    Side: bbox scaling.
     """
-    import os
     if std_data is None or user_contour is None or len(user_contour) < 10:
         return None
 
-    # 用户轮廓中心: 用拟合椭圆中心(比bbox中心更稳定)
     user_pts = user_contour.reshape(-1, 2).astype(np.float32)
+
+    # user center: fit ellipse center
     if len(user_pts) >= 5:
         u_ellipse = cv2.fitEllipse(user_pts)
-        (user_cx, user_cy), (u_major, u_minor), u_angle = u_ellipse
+        (user_cx, user_cy), _, _ = u_ellipse
     else:
         bx, by, bw, bh = cv2.boundingRect(user_contour)
-        user_cx = bx + bw // 2
-        user_cy = by + bh // 2
+        user_cx, user_cy = bx + bw // 2, by + bh // 2
 
-    # 判断是俯视椭圆还是侧面轮廓
     if isinstance(std_data, tuple) and len(std_data) == 3:
-        # 俯视: fitEllipse 参数 ((cx,cy),(major,minor),angle)
-        (scx, scy), (major, minor), angle = std_data
-
-        # 逐角度检查: 标准椭圆半径 ≥ 绿线距离
-        max_ratio = 0
-        if len(user_pts) >= 10:
-            rad_a = np.radians(angle)
-            for px, py in user_pts:
-                dx = px - user_cx
-                dy = py - user_cy
-                # 该点对应的标准椭圆半径
-                cos_t = np.cos(rad_a)
-                sin_t = np.sin(rad_a)
-                # 将(dx,dy)旋转到标准椭圆坐标系
-                rx = dx * cos_t + dy * sin_t
-                ry = -dx * sin_t + dy * cos_t
-                # 椭圆方程: (rx/a)²+(ry/b)²=1, 当前点到中心的距离对应半径
-                if abs(rx) > 0 or abs(ry) > 0:
-                    r_ellipse = 1.0 / np.sqrt((rx/(major/2))**2 + (ry/(minor/2))**2 + 1e-10)
-                    r_actual = np.sqrt(dx**2 + dy**2)
-                    ratio = r_actual / r_ellipse
-                    max_ratio = max(max_ratio, ratio)
-        scale = max(max_ratio, max(u_major / major, u_minor / minor)) if max_ratio > 0 else max(u_major / major, u_minor / minor)
-        scale *= 1.02  # 2% 微小边距
-
-        major_s = major * scale
-        minor_s = minor * scale
-        angles = np.linspace(0, 2 * np.pi, 200)
+        # === Top view: median radius ratio (MiMo Pro algorithm) ===
+        (_, _), (major, minor), angle = std_data
+        a, b = major / 2, minor / 2  # semi-axes
         rad = np.radians(angle)
-        ex = user_cx + major_s/2 * np.cos(angles) * np.cos(rad) - minor_s/2 * np.sin(angles) * np.sin(rad)
-        ey = user_cy + major_s/2 * np.cos(angles) * np.sin(rad) + minor_s/2 * np.sin(angles) * np.cos(rad)
+
+        # 1. Standard ellipse 360-degree radius
+        phis = np.linspace(0, 2*np.pi, 360, endpoint=False)
+        dphi = phis - rad
+        cos_d = np.cos(dphi)
+        sin_d = np.sin(dphi)
+        r_std = (a * b) / np.sqrt((b * cos_d)**2 + (a * sin_d)**2 + 1e-10)
+
+        # 2. User contour -> polar -> interpolate to 360 points
+        dx = user_pts[:, 0] - user_cx
+        dy = user_pts[:, 1] - user_cy
+        r_user_raw = np.sqrt(dx**2 + dy**2)
+        theta = np.arctan2(dy, dx)
+        order = np.argsort(theta)
+        r_user = np.interp(phis, theta[order], r_user_raw[order], period=2*np.pi)
+
+        # 3. Median scale ratio (robust to hair spikes)
+        ratios = r_user / (r_std + 1e-10)
+        scale = np.percentile(ratios, 60)  # 60分位: 比median稍大, 比75紧凑
+
+        # 4. Generate scaled ellipse, 200 points
+        new_a, new_b = a * scale, b * scale
+        t = np.linspace(0, 2*np.pi, 200)
+        ex = user_cx + new_a * np.cos(t) * np.cos(rad) - new_b * np.sin(t) * np.sin(rad)
+        ey = user_cy + new_a * np.cos(t) * np.sin(rad) + new_b * np.sin(t) * np.cos(rad)
         return np.column_stack([ex, ey]).astype(np.int32).reshape(-1, 1, 2)
     else:
-        # 侧面: bounding box 缩放
+        # === Side view: bbox scaling ===
         std_pts = std_data.reshape(-1, 2).astype(np.float32)
         sw = std_pts[:, 0].max() - std_pts[:, 0].min()
         sh = std_pts[:, 1].max() - std_pts[:, 1].min()
@@ -100,17 +97,13 @@ def _align_and_scale_contour(std_data, user_contour, h, w):
             return None
         scx = (std_pts[:, 0].min() + std_pts[:, 0].max()) / 2
         scy = (std_pts[:, 1].min() + std_pts[:, 1].max()) / 2
+        bx, by, bw, bh = cv2.boundingRect(user_contour)
+        ucx, ucy = bx + bw // 2, by + bh // 2
         scale = max(bw / sw, bh / sh)
         aligned = std_pts.copy()
-        aligned[:, 0] = (aligned[:, 0] - scx) * scale + user_cx
-        aligned[:, 1] = (aligned[:, 1] - scy) * scale + user_cy
+        aligned[:, 0] = (aligned[:, 0] - scx) * scale + ucx
+        aligned[:, 1] = (aligned[:, 1] - scy) * scale + ucy
         return aligned.astype(np.int32).reshape(-1, 1, 2)
-
-
-# ============================================================
-# PART 2: 形状对比 (基于实际临床指标)
-# ============================================================
-
 def compute_top_similarity(user_contour):
     """
     俯视图相似度: 基于 CI 偏离度
