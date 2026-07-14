@@ -201,28 +201,64 @@ def draw_comparison(image, user_contour, view='top', side_result=None, side='lef
         cv2.addWeighted(overlay2, 0.75, result, 0.25, 0, result)
 
     else:
-        # === 侧面: 标准轮廓(MiMo Pro提取) + bbox缩放 ===
+        # === 侧面: RANSAC圆拟合后脑点 → 后枕理想弧 ===
         score = compute_side_similarity(side_result)
         comp_data = {"similarity_score": score}
 
         if user_contour is not None and len(user_contour) >= 10:
-            # 加载提取的标准侧面轮廓
-            std_contour = _load_std_contour(view, side)
-            ideal_contour = _align_and_scale_contour(std_contour, user_contour, h, w)
+            pts = user_contour.reshape(-1, 2).astype(np.float32)
+            mid_x = (pts[:,0].min() + pts[:,0].max()) / 2
 
-            if ideal_contour is not None:
-                # 侧面弧线不闭合(polylines isClosed=False)
-                overlay = result.copy()
-                cv2.polylines(overlay, [ideal_contour], False, (60, 60, 60), 5)
-                cv2.addWeighted(overlay, 0.6, result, 0.4, 0, result)
-                overlay2 = result.copy()
-                cv2.polylines(overlay2, [ideal_contour], False, (255, 255, 255), 2)
-                cv2.addWeighted(overlay2, 0.75, result, 0.25, 0, result)
+            # 后脑侧 = 点数少的一侧
+            left_n = int(np.sum(pts[:,0] < mid_x))
+            right_n = int(np.sum(pts[:,0] > mid_x))
+            if left_n < right_n:
+                back_pts = pts[pts[:,0] < mid_x]
+            else:
+                back_pts = pts[pts[:,0] > mid_x]
+
+            if len(back_pts) >= 10:
+                # RANSAC 圆拟合
+                best_c, best_n = None, 0
+                for _ in range(200):
+                    idx = np.random.choice(len(back_pts), 3, replace=False)
+                    p1, p2, p3 = back_pts[idx]
+                    A = np.array([[p1[0],p1[1],1],[p2[0],p2[1],1],[p3[0],p3[1],1]], dtype=np.float64)
+                    if abs(np.linalg.det(A)) < 1e-6: continue
+                    D = np.array([-p1[0]**2-p1[1]**2, -p2[0]**2-p2[1]**2, -p3[0]**2-p3[1]**2], dtype=np.float64)
+                    try:
+                        sol = np.linalg.solve(A, D)
+                        cx = float(-sol[0]/2); cy = float(-sol[1]/2)
+                        r = float(np.sqrt(max(0, cx**2 + cy**2 - sol[2])))
+                        if r < 50 or r > 5000: continue
+                        dists = np.abs(np.sqrt((back_pts[:,0]-cx)**2 + (back_pts[:,1]-cy)**2) - r)
+                        n = int(np.sum(dists < 80))
+                        if n > best_n: best_n = n; best_c = (cx, cy, r * 1.05)
+                    except: pass
+
+                if best_c is not None:
+                    cx, cy, r = best_c
+                    # 后脑最突点角度 ± 45°
+                    backmost_i = np.argmin(back_pts[:,0]) if left_n < right_n else np.argmax(back_pts[:,0])
+                    bm_angle = np.degrees(np.arctan2(back_pts[backmost_i,1]-cy, back_pts[backmost_i,0]-cx))
+                    a1, a2 = bm_angle - 55, bm_angle + 55
+                    t = np.linspace(np.radians(a1), np.radians(a2), 50)
+                    frac = np.linspace(0, 1, 50)  # 0=顶部, 1=底部
+                    r_adj = r * (0.97 + 0.08 * (1 - frac))  # 顶部1.05x→底部0.97x
+                    ax = cx + r_adj * np.cos(t); ay = cy + r_adj * np.sin(t)
+                    ideal = np.column_stack([ax, ay]).astype(np.int32).reshape(-1, 1, 2)
+
+                    overlay = result.copy()
+                    cv2.polylines(overlay, [ideal], False, (60, 60, 60), 5)
+                    cv2.addWeighted(overlay, 0.6, result, 0.4, 0, result)
+                    overlay2 = result.copy()
+                    cv2.polylines(overlay2, [ideal], False, (255, 255, 255), 2)
+                    cv2.addWeighted(overlay2, 0.75, result, 0.25, 0, result)
 
         status = "圆润" if score >= 70 else ("稍扁平" if score >= 40 else "明显扁平")
         _draw_text_box(result, [
             f"后枕圆润度 {score}%  {status}",
-            f"白线=标准头型  绿线=实测",
+            f"白弧=理想弧度  绿线=实测",
         ], 12, h - 12, font_scale=0.60)
 
     # 用户轮廓 - 绿色实线
