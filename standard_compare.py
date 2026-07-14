@@ -32,9 +32,11 @@ def _load_std_contour(view, side='left'):
                 else:
                     _STD_ELLIPSE[cache_key] = None
         else:
-            # 侧面: 根据方向加载对应标准轮廓
-            fname = 'std_side_right.npy' if side == 'right' else 'std_side_left.npy'
-            path = os.path.join(std_dir, fname)
+            # 侧面: 加载合成标准轮廓 (std_cache优先)
+            fname = f'std_side_{side}.npy'
+            path = os.path.join(os.path.dirname(__file__), 'std_cache', fname)
+            if not os.path.exists(path):
+                path = os.path.join(std_dir, fname)
             _STD_ELLIPSE[cache_key] = np.load(path, allow_pickle=True) if os.path.exists(path) else None
     return _STD_ELLIPSE.get(cache_key)
 
