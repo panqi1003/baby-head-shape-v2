@@ -201,31 +201,27 @@ def draw_comparison(image, user_contour, view='top', side_result=None, side='lef
         cv2.addWeighted(overlay2, 0.75, result, 0.25, 0, result)
 
     else:
-        # === 侧面: PCA理想圆弧 ===
+        # === 侧面: 标准轮廓(MiMo Pro提取) + bbox缩放 ===
         score = compute_side_similarity(side_result)
         comp_data = {"similarity_score": score}
 
-        if side_result and user_contour is not None and len(user_contour) >= 10:
-            center = side_result.get('_pca_center')
-            expected_r = side_result.get('expected_radius', 100)
-            back_angles = side_result.get('_back_angles', [-90, 90])
-            if center and expected_r > 10:
-                cx, cy = center[0], center[1]
-                ang_start, ang_end = back_angles
-                arc_a = np.linspace(np.radians(ang_start), np.radians(ang_end), 100)
-                arc_x = cx + expected_r * np.cos(arc_a)
-                arc_y = cy + expected_r * np.sin(arc_a)
-                ideal_contour = np.column_stack([arc_x, arc_y]).astype(np.int32).reshape(-1, 1, 2)
-                # 白弧 + 阴影
-                for i in range(len(ideal_contour) - 1):
-                    cv2.line(result, tuple(ideal_contour[i][0]), tuple(ideal_contour[i+1][0]), (60, 60, 60), 5)
-                for i in range(len(ideal_contour) - 1):
-                    cv2.line(result, tuple(ideal_contour[i][0]), tuple(ideal_contour[i+1][0]), (255, 255, 255), 3)
+        if user_contour is not None and len(user_contour) >= 10:
+            # 加载提取的标准侧面轮廓
+            std_contour = _load_std_contour(view, side)
+            ideal_contour = _align_and_scale_contour(std_contour, user_contour, h, w)
+
+            if ideal_contour is not None:
+                overlay = result.copy()
+                cv2.drawContours(overlay, [ideal_contour], -1, (60, 60, 60), 5)
+                cv2.addWeighted(overlay, 0.6, result, 0.4, 0, result)
+                overlay2 = result.copy()
+                cv2.drawContours(overlay2, [ideal_contour], -1, (255, 255, 255), 2)
+                cv2.addWeighted(overlay2, 0.75, result, 0.25, 0, result)
 
         status = "圆润" if score >= 70 else ("稍扁平" if score >= 40 else "明显扁平")
         _draw_text_box(result, [
             f"后枕圆润度 {score}%  {status}",
-            f"白弧=理想弧度  绿线=实测",
+            f"白线=标准头型  绿线=实测",
         ], 12, h - 12, font_scale=0.60)
 
     # 用户轮廓 - 绿色实线
