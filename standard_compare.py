@@ -94,40 +94,21 @@ def _align_and_scale_contour(std_data, user_contour, h, w):
         ey = user_cy + new_a * np.cos(t) * np.sin(rad) + new_b * np.sin(t) * np.cos(rad)
         return np.column_stack([ex, ey]).astype(np.int32).reshape(-1, 1, 2)
     else:
-        # === Side view: polar sampling same as top ===
+        # === Side view: bbox scaling (开放曲线, 不能用极坐标) ===
         std_pts = std_data.reshape(-1, 2).astype(np.float32)
+        sw = std_pts[:, 0].max() - std_pts[:, 0].min()
+        sh = std_pts[:, 1].max() - std_pts[:, 1].min()
+        if sw < 5 or sh < 5:
+            return None
         scx = (std_pts[:, 0].min() + std_pts[:, 0].max()) / 2
         scy = (std_pts[:, 1].min() + std_pts[:, 1].max()) / 2
-        std_dx = std_pts[:, 0] - scx
-        std_dy = std_pts[:, 1] - scy
-
-        # 1. Standard contour -> polar -> 360 points
-        std_r = np.sqrt(std_dx**2 + std_dy**2)
-        std_theta = np.arctan2(std_dy, std_dx)
-        order = np.argsort(std_theta)
-        std_r_interp = np.interp(phis, std_theta[order], std_r[order], period=2*np.pi)
-
-        # 2. User contour -> polar -> 360 points (already computed above for user)
-        dx = user_pts[:, 0] - user_cx
-        dy = user_pts[:, 1] - user_cy
-        r_user_raw = np.sqrt(dx**2 + dy**2)
-        theta = np.arctan2(dy, dx)
-        order = np.argsort(theta)
-        r_user = np.interp(phis, theta[order], r_user_raw[order], period=2*np.pi)
-
-        # 3. 60th percentile scale
-        ratios = r_user / (std_r_interp + 1e-10)
-        scale = np.percentile(ratios, 60)
-
-        # 4. Scale, align, and close contour
+        bx, by, bw, bh = cv2.boundingRect(user_contour)
+        ucx, ucy = bx + bw // 2, by + bh // 2
+        scale = max(bw / sw, bh / sh)
         aligned = std_pts.copy()
-        aligned[:, 0] = (std_dx * scale) + user_cx
-        aligned[:, 1] = (std_dy * scale) + user_cy
-        result = aligned.astype(np.int32).reshape(-1, 1, 2)
-        # 闭合: 头尾不相连时补上第一点
-        if len(result) > 0 and np.linalg.norm(result[0] - result[-1]) > 3:
-            result = np.vstack([result, result[0:1]])
-        return result
+        aligned[:, 0] = (aligned[:, 0] - scx) * scale + ucx
+        aligned[:, 1] = (aligned[:, 1] - scy) * scale + ucy
+        return aligned.astype(np.int32).reshape(-1, 1, 2)
 def compute_top_similarity(user_contour):
     """
     俯视图相似度: 基于 CI 偏离度
