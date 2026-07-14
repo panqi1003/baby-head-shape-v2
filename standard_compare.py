@@ -56,8 +56,13 @@ def _align_and_scale_contour(std_data, user_contour, h, w):
     if isinstance(std_data, tuple) and len(std_data) == 3:
         # 俯视: fitEllipse 参数 ((cx,cy),(major,minor),angle)
         (scx, scy), (major, minor), angle = std_data
-        # 用椭圆长短轴计算缩放, 精确匹配
-        scale = max(bw / major, bh / minor)
+        # 取绿线所有点到中心的最大距离, 确保白线椭圆完全包住绿线
+        user_pts = user_contour.reshape(-1, 2).astype(np.float32)
+        dists = np.sqrt((user_pts[:, 0] - user_cx)**2 + (user_pts[:, 1] - user_cy)**2)
+        max_r = dists.max()
+        # 标准椭圆的等效半径 (取短半轴确保在所有方向都覆盖)
+        std_min_r = min(major, minor) / 2
+        scale = (max_r / std_min_r) * 1.07 if std_min_r > 0 else max(bw / major, bh / minor)
         major_s = major * scale
         minor_s = minor * scale
         # 生成平滑椭圆 200点
