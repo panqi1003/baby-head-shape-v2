@@ -19,7 +19,16 @@ Page({
     if (wx.requirePrivacyAuthorize) {
       wx.requirePrivacyAuthorize({
         success: () => cb(),   // 用户同意 (或此前已同意)
-        fail: () => wx.showToast({ title: '需同意隐私协议才能使用拍照功能', icon: 'none', duration: 2500 })
+        fail: (err) => {
+          const msg = (err && err.errMsg) || ''
+          // 后台隐私指引未配置(开发期常见) → 放行, 上线前必须在mp后台补填
+          if (msg.indexOf('not declared') >= 0 || msg.indexOf('api scope') >= 0) {
+            console.warn('隐私指引未配置, 开发期放行:', msg)
+            cb()
+          } else {
+            wx.showToast({ title: '需同意隐私协议才能使用拍照功能', icon: 'none', duration: 2500 })
+          }
+        }
       })
     } else {
       cb()  // 低版本基础库无此API, 直接放行
