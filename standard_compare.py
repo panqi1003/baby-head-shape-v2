@@ -271,6 +271,13 @@ def draw_comparison(image, user_contour, view='top', side_result=None, side='lef
                 comp_data["gap_mid"] = round(gap_mid, 1)
                 comp_data["gap_bot"] = round(gap_bot, 1)
 
+                # 相似度改为基于白弧间隙 (与用户看到的对比图一致)
+                # inward = 绿线比白弧内收的平均量, 归一化到半径
+                inward = float(np.mean(np.maximum(0, -gaps)))
+                ratio = inward / (r + 1e-6)
+                score = max(0, min(100, int(round(100 - ratio * 2500))))
+                comp_data["similarity_score"] = score
+
                 overlay = result.copy()
                 cv2.polylines(overlay, [ideal], False, (60, 60, 60), 5)
                 cv2.addWeighted(overlay, 0.6, result, 0.4, 0, result)

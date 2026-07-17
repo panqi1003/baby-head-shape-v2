@@ -467,9 +467,11 @@ def refine_contour_under_hair(image: np.ndarray, head_mask: np.ndarray,
     best = max(contours, key=cv2.contourArea)
 
     # 安全检查: 新轮廓面积不能太小
+    # MiMo Pro评审: 头发厚度对面积的真实贡献仅3-10%, 0.6过松会放行过度矫正
+    # (刨到发际线而非头皮, 单侧浓密时制造假性CVAI不对称), 收紧到0.9
     orig_area = cv2.contourArea(contour)
     new_area = cv2.contourArea(best)
-    if new_area < orig_area * 0.6:
+    if new_area < orig_area * 0.9:
         return contour  # 头发抠太多了, 回退
 
     return best

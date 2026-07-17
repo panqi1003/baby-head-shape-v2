@@ -12,6 +12,30 @@
     <image wx:if="{{topAnnotatedImg}}" src="{{topAnnotatedImg}}" class="annotated-img" mode="widthFix" />
     <view wx:else class="img-empty"><van-loading size="30rpx" color="#3b82f6" /></view>
 
+    <!-- 图例 -->
+    <view class="legend-row">
+      <view class="legend-item">
+        <view class="legend-dot" style="background:#00c850"></view>
+        <text class="legend-name">绿线</text>
+        <text class="legend-desc">实际轮廓</text>
+      </view>
+      <view class="legend-item">
+        <view class="legend-dot" style="background:#0078dc"></view>
+        <text class="legend-name">蓝线</text>
+        <text class="legend-desc">拟合椭圆</text>
+      </view>
+      <view class="legend-item">
+        <view class="legend-dot" style="background:#dc3232"></view>
+        <text class="legend-name">红线</text>
+        <text class="legend-desc">头长</text>
+      </view>
+      <view class="legend-item">
+        <view class="legend-dot" style="background:#e6dc00"></view>
+        <text class="legend-name">黄线</text>
+        <text class="legend-desc">头宽</text>
+      </view>
+    </view>
+
     <!-- 比例尺 -->
     <view wx:if="{{scaleNote}}" class="scale-info">
       <van-icon name="info-o" size="28rpx" color="#3b82f6" />

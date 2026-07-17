@@ -155,7 +155,7 @@ async def analyze_side(image: UploadFile = File(...), guide_frame: bool = Form(F
 
         # 复用 analyze_side_profile 返回的 contour，避免重复 SAM 调用
         contour_list = result.pop("_head_contour", None)
-        comp_data = result.pop("_standard_compare", None)
+        comp_data = None
         side_b64 = None
         compare_b64 = None
         if contour_list and len(contour_list) >= 20:

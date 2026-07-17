@@ -20,7 +20,6 @@ def analyze_side_profile(image: np.ndarray) -> Optional[Dict]:
     h, w = image.shape[:2]
 
     from sam_detector import detect_head
-    from head_analyzer import detect_hair_interference, refine_contour_under_hair
 
     # 侧面图不需要 guide_mask — SAM点提示本身足够
     sam_result = detect_head(image, view='side')
@@ -29,12 +28,9 @@ def analyze_side_profile(image: np.ndarray) -> Optional[Dict]:
 
     head_mask, head_contour = sam_result
 
-    # 头发干扰补偿 — 与俯视图相同的处理
-    hair_score = detect_hair_interference(head_contour)
-    if hair_score > 0.05:
-        refined = refine_contour_under_hair(image, head_mask, head_contour, hair_score)
-        if refined is not None and len(refined) > 20:
-            head_contour = refined
+    # 侧面图不做头发补偿 (MiMo Pro评审):
+    # 1. 侧面轮廓含鼻/下巴/耳/颈, 远离圆形, hair_score恒饱和, 门控失效
+    # 2. 后枕正是头发最厚区域, 刨除后轮廓沿发际线走, 扁平度测量对象被偷换
 
     if len(head_contour) < 30:
         return None
@@ -126,12 +122,5 @@ def analyze_side_profile(image: np.ndarray) -> Optional[Dict]:
         "_back_angles": [back_angle_start, back_angle_end],
     }
 
-    # 标准头型对比 (基于扁平度评分)
-    try:
-        from standard_compare import draw_comparison
-        _, comp_data = draw_comparison(image, head_contour, view='side', side_result=result_dict)
-        result_dict["_standard_compare"] = comp_data
-    except Exception:
-        result_dict["_standard_compare"] = None
-
+    # 标准对比由 app.py 统一调用 draw_comparison 一次完成 (避免Snake重复计算)
     return result_dict

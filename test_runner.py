@@ -203,15 +203,24 @@ def run_side_analysis(img):
     if result:
         contour_list = result.get('_head_contour')
         side_buf = None
+        similarity = None
         if contour_list and len(contour_list) >= 20:
             contour = np.array(contour_list, dtype=np.int32).reshape(-1, 1, 2)
             sa = img.copy()
             cv2.drawContours(sa, [contour], -1, (0, 200, 80), 3)
             _, side_buf = cv2.imencode('.jpg', sa, [cv2.IMWRITE_JPEG_QUALITY, 85])
+            # Snake对比 (与 app.py 相同路径: draw_comparison 只调一次)
+            try:
+                from standard_compare import draw_comparison
+                _, comp_data = draw_comparison(img, contour, view='side', side_result=result)
+                similarity = comp_data.get('similarity_score')
+            except Exception:
+                pass
         return {
             'flatness': result.get('posterior_flatness'),
             'category': result.get('flatness_category'),
             'head_length_px': result.get('head_length_px'),
+            'similarity': similarity,
         }, side_buf
     return None, None
 
@@ -225,14 +234,15 @@ def validate_top(gt, result):
     issues = []
     actual_ci = result['ci']
     variant = gt.get('variant', 'normal')
+    expected_ci = gt.get('expected_ci')
 
-    # CI 方向验证: 扁头(宽>长)→CI>100, 长头(长>宽)→CI<100
-    if variant == 'brachy' and actual_ci < 95:
-        issues.append(f"扁头型CI应偏高: 实际{actual_ci:.1f}")
-    elif variant == 'dolicho' and actual_ci > 90:
-        issues.append(f"长头型CI应偏低: 实际{actual_ci:.1f}")
-    elif variant == 'normal' and (actual_ci < 70 or actual_ci > 120):
-        issues.append(f"正常头型CI异常: {actual_ci:.1f}")
+    # CI修复后恒有 头长≥头宽 → CI不可能超过100
+    if actual_ci > 100.5:
+        issues.append(f"CI超过100(长宽互换修复未生效): {actual_ci:.1f}")
+
+    # 与合成椭圆的理论CI对比 (±12容差: SAM轮廓/头发噪声)
+    if expected_ci and abs(actual_ci - expected_ci) > 12:
+        issues.append(f"CI偏离理论值: 实际{actual_ci:.1f} 理论{expected_ci}")
 
     # 绝对尺寸仅在有硬币参照物时验证
     if gt.get('has_coin'):
@@ -268,6 +278,11 @@ def validate_side(gt, result):
 
     if result['head_length_px'] < 100:
         issues.append(f"头长像素过小: {result['head_length_px']:.0f}px")
+
+    # Snake gap 相似度: 应在 0-100 范围内
+    sim = result.get('similarity')
+    if sim is not None and (sim < 0 or sim > 100):
+        issues.append(f"相似度超出范围: {sim}")
 
     return issues
 
