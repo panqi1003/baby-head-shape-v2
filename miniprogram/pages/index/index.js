@@ -14,27 +14,51 @@ Page({
     guideFrameActive: true,
   },
 
-  takeTopPhoto() { this.setData({ photoType: 'top', guideFrameActive: true }); wx.navigateTo({ url: '/pages/camera/camera?type=top' }) },
-  takeRightSidePhoto() { this.setData({ photoType: 'side', guideFrameActive: true }); wx.navigateTo({ url: '/pages/camera/camera?type=side&side=right' }) },
+  // 隐私授权: 首次拍照/选图前触发官方隐私弹窗
+  ensurePrivacy(cb) {
+    if (wx.requirePrivacyAuthorize) {
+      wx.requirePrivacyAuthorize({
+        success: () => cb(),   // 用户同意 (或此前已同意)
+        fail: () => wx.showToast({ title: '需同意隐私协议才能使用拍照功能', icon: 'none', duration: 2500 })
+      })
+    } else {
+      cb()  // 低版本基础库无此API, 直接放行
+    }
+  },
+
+  takeTopPhoto() {
+    this.ensurePrivacy(() => {
+      this.setData({ photoType: 'top', guideFrameActive: true })
+      wx.navigateTo({ url: '/pages/camera/camera?type=top' })
+    })
+  },
+  takeRightSidePhoto() {
+    this.ensurePrivacy(() => {
+      this.setData({ photoType: 'side', guideFrameActive: true })
+      wx.navigateTo({ url: '/pages/camera/camera?type=side&side=right' })
+    })
+  },
 
   // 从相册选择照片 (无引导框对齐, 比例估算降级)
   chooseFromAlbum(e) {
     const type = e.currentTarget.dataset.type
     const that = this
-    wx.chooseMedia({
-      count: 1,
-      mediaType: ['image'],
-      sourceType: ['album'],
-      success(res) {
-        const path = res.tempFiles[0].tempFilePath
-        that.setData({ guideFrameActive: false })
-        if (type === 'top') {
-          that.setData({ topPhoto: path })
-          that.checkReference(path)
-        } else if (type === 'right') {
-          that.setData({ rightSidePhoto: path })
+    that.ensurePrivacy(() => {
+      wx.chooseMedia({
+        count: 1,
+        mediaType: ['image'],
+        sourceType: ['album'],
+        success(res) {
+          const path = res.tempFiles[0].tempFilePath
+          that.setData({ guideFrameActive: false })
+          if (type === 'top') {
+            that.setData({ topPhoto: path })
+            that.checkReference(path)
+          } else if (type === 'right') {
+            that.setData({ rightSidePhoto: path })
+          }
         }
-      }
+      })
     })
   },
 

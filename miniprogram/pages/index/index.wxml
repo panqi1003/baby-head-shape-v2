@@ -129,7 +129,7 @@
       disabled="{{!topPhoto || analyzing}}" loading="{{analyzing}}" loading-text="分析中...">
       开始分析
     </van-button>
-    <text class="disclaimer">本工具仅供家庭参考，不构成医疗建议</text>
+    <text class="disclaimer">照片仅用于头型分析，分析完成即删除，服务器不留存\n本工具仅供家庭参考，不构成医疗建议</text>
   </view>
 
   <van-toast id="van-toast" />

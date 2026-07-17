@@ -15,5 +15,6 @@
       "desc": "需要使用相机拍摄宝宝头顶照片来进行头型分析"
     }
   },
+  "__usePrivacyCheck__": true,
   "sitemapLocation": "sitemap.json"
 }
