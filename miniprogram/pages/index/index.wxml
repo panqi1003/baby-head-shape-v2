@@ -100,7 +100,8 @@
     <!-- 月龄 + 开关 -->
     <view class="input-row">
       <text class="input-label">宝宝月龄</text>
-      <input class="input-field" type="number" placeholder="选填" value="{{ageMonths}}" bindinput="onAgeInput" />
+      <van-tag type="danger" size="mini">必填</van-tag>
+      <input class="input-field" type="number" placeholder="0-36" value="{{ageMonths}}" bindinput="onAgeInput" />
       <text class="input-unit">个月</text>
     </view>
 

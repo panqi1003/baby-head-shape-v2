@@ -175,6 +175,10 @@ def draw_comparison(image, user_contour, view='top', side_result=None, side='lef
     result = image.copy()
     ideal_contour = None
 
+    # 用户轮廓绿线先画: 白线(半透明)后叠加, 重合处两条都可见
+    if user_contour is not None and len(user_contour) >= 10:
+        cv2.drawContours(result, [user_contour], -1, (0, 230, 50), 3)
+
     if view == 'top':
         # === 俯视图: 标准椭圆 ===
         std_contour = _load_std_contour(view)
@@ -197,7 +201,7 @@ def draw_comparison(image, user_contour, view='top', side_result=None, side='lef
         cv2.drawContours(overlay, [ideal_contour], -1, (40, 40, 40), 4)
         cv2.addWeighted(overlay, 0.6, result, 0.4, 0, result)
         overlay2 = result.copy()
-        cv2.drawContours(overlay2, [ideal_contour], -1, (255, 255, 255), 2)
+        cv2.drawContours(overlay2, [ideal_contour], -1, (255, 255, 255), 3)
         cv2.addWeighted(overlay2, 0.75, result, 0.25, 0, result)
 
     else:
@@ -282,7 +286,7 @@ def draw_comparison(image, user_contour, view='top', side_result=None, side='lef
                 cv2.polylines(overlay, [ideal], False, (60, 60, 60), 5)
                 cv2.addWeighted(overlay, 0.6, result, 0.4, 0, result)
                 overlay2 = result.copy()
-                cv2.polylines(overlay2, [ideal], False, (255, 255, 255), 2)
+                cv2.polylines(overlay2, [ideal], False, (255, 255, 255), 3)
                 cv2.addWeighted(overlay2, 0.75, result, 0.25, 0, result)
 
         status = "圆润" if score >= 70 else ("稍扁平" if score >= 40 else "明显扁平")
@@ -290,10 +294,6 @@ def draw_comparison(image, user_contour, view='top', side_result=None, side='lef
             f"后枕圆润度 {score}%  {status}",
             f"白弧=理想弧度  绿线=实测",
         ], 12, h - 12, font_scale=0.60)
-
-    # 用户轮廓 - 绿色实线
-    if user_contour is not None and len(user_contour) >= 10:
-        cv2.drawContours(result, [user_contour], -1, (0, 230, 50), 3)
 
     # 图例
     legend_y = 36

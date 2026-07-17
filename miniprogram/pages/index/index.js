@@ -52,7 +52,12 @@ Page({
     }
   },
 
-  onAgeInput(e) { this.setData({ ageMonths: e.detail.value }) },
+  onAgeInput(e) {
+    // 只保留数字
+    const v = String(e.detail.value || '').replace(/[^\d]/g, '')
+    this.setData({ ageMonths: v })
+    return v
+  },
   toggleReference(e) {
     if (!this.data.hasReference) {
       wx.showToast({ title: '照片中未检测到参照物，无法开启校准', icon: 'none', duration: 2500 })
@@ -93,6 +98,16 @@ Page({
     const that = this
     if (!that.data.topPhoto) {
       wx.showToast({ title: '请先拍摄俯视图', icon: 'none' })
+      return
+    }
+    const age = String(that.data.ageMonths || '').trim()
+    if (!age) {
+      wx.showToast({ title: '请填写宝宝月龄', icon: 'none' })
+      return
+    }
+    const ageNum = parseInt(age)
+    if (isNaN(ageNum) || ageNum < 0 || ageNum > 36) {
+      wx.showToast({ title: '月龄请填 0-36 的数字', icon: 'none' })
       return
     }
     that.setData({ analyzing: true })
