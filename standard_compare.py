@@ -201,59 +201,82 @@ def draw_comparison(image, user_contour, view='top', side_result=None, side='lef
         cv2.addWeighted(overlay2, 0.75, result, 0.25, 0, result)
 
     else:
-        # === 侧面: RANSAC圆拟合后脑点 → 后枕理想弧 ===
+        # === 侧面: Snake v2 PCA自适应弧线 ===
         score = compute_side_similarity(side_result)
         comp_data = {"similarity_score": score}
 
-        if user_contour is not None and len(user_contour) >= 10:
+        if user_contour is not None and len(user_contour) >= 10 and side_result is not None:
             pts = user_contour.reshape(-1, 2).astype(np.float32)
-            mid_x = (pts[:,0].min() + pts[:,0].max()) / 2
+            pca_center = side_result.get('_pca_center')
+            pca_v1 = side_result.get('_pca_v1')
+            expected_radius = side_result.get('expected_radius', 0)
 
-            # 后脑侧 = 点数少的一侧
-            left_n = int(np.sum(pts[:,0] < mid_x))
-            right_n = int(np.sum(pts[:,0] > mid_x))
-            if left_n < right_n:
-                back_pts = pts[pts[:,0] < mid_x]
-            else:
-                back_pts = pts[pts[:,0] > mid_x]
+            if pca_center and pca_v1 and expected_radius > 10:
+                cx, cy = pca_center
+                v1 = np.array(pca_v1)
 
-            if len(back_pts) >= 10:
-                # RANSAC 圆拟合
-                best_c, best_n = None, 0
-                for _ in range(200):
-                    idx = np.random.choice(len(back_pts), 3, replace=False)
-                    p1, p2, p3 = back_pts[idx]
-                    A = np.array([[p1[0],p1[1],1],[p2[0],p2[1],1],[p3[0],p3[1],1]], dtype=np.float64)
-                    if abs(np.linalg.det(A)) < 1e-6: continue
-                    D = np.array([-p1[0]**2-p1[1]**2, -p2[0]**2-p2[1]**2, -p3[0]**2-p3[1]**2], dtype=np.float64)
-                    try:
-                        sol = np.linalg.solve(A, D)
-                        cx = float(-sol[0]/2); cy = float(-sol[1]/2)
-                        r = float(np.sqrt(max(0, cx**2 + cy**2 - sol[2])))
-                        if r < 50 or r > 5000: continue
-                        dists = np.abs(np.sqrt((back_pts[:,0]-cx)**2 + (back_pts[:,1]-cy)**2) - r)
-                        n = int(np.sum(dists < 80))
-                        if n > best_n: best_n = n; best_c = (cx, cy, r * 1.05)
-                    except: pass
+                # 面朝方向: PCA投影两组x均值比较
+                centered = pts - np.array([cx, cy])
+                proj = np.dot(centered, v1)
+                pos_mask = proj >= 0
+                neg_mask = proj < 0
+                mx_pos = np.mean(pts[pos_mask, 0]) if np.any(pos_mask) else 0
+                mx_neg = np.mean(pts[neg_mask, 0]) if np.any(neg_mask) else 0
+                bd = -v1 if mx_pos > mx_neg else v1
+                ba = np.degrees(np.arctan2(bd[1], bd[0]))
 
-                if best_c is not None:
-                    cx, cy, r = best_c
-                    # 后脑最突点角度 ± 45°
-                    backmost_i = np.argmin(back_pts[:,0]) if left_n < right_n else np.argmax(back_pts[:,0])
-                    bm_angle = np.degrees(np.arctan2(back_pts[backmost_i,1]-cy, back_pts[backmost_i,0]-cx))
-                    a1, a2 = bm_angle - 55, bm_angle + 55
-                    t = np.linspace(np.radians(a1), np.radians(a2), 50)
-                    frac = np.linspace(0, 1, 50)  # 0=顶部, 1=底部
-                    r_adj = r * (0.97 + 0.08 * (1 - frac))  # 顶部1.05x→底部0.97x
-                    ax = cx + r_adj * np.cos(t); ay = cy + r_adj * np.sin(t)
-                    ideal = np.column_stack([ax, ay]).astype(np.int32).reshape(-1, 1, 2)
+                # 初始半径 = 前部中位半径 × 0.94
+                r = expected_radius * 0.94
 
-                    overlay = result.copy()
-                    cv2.polylines(overlay, [ideal], False, (60, 60, 60), 5)
-                    cv2.addWeighted(overlay, 0.6, result, 0.4, 0, result)
-                    overlay2 = result.copy()
-                    cv2.polylines(overlay2, [ideal], False, (255, 255, 255), 2)
-                    cv2.addWeighted(overlay2, 0.75, result, 0.25, 0, result)
+                # 后脑方向 ±70° 初始化Snake
+                a1, a2 = ba - 70, ba + 70
+                t = np.linspace(np.radians(a1), np.radians(a2), 60)
+                snake = np.column_stack([cx + r * np.cos(t), cy + r * np.sin(t)])
+
+                # Snake迭代: 40轮, 只向外, 步长0.3, 3次平滑
+                for _ in range(40):
+                    ns = snake.copy()
+                    for i in range(60):
+                        dc = np.sqrt((snake[i, 0] - cx) ** 2 + (snake[i, 1] - cy) ** 2)
+                        di = np.argmin(np.sqrt(
+                            (pts[:, 0] - snake[i, 0]) ** 2 + (pts[:, 1] - snake[i, 1]) ** 2))
+                        dt = np.sqrt((pts[di, 0] - cx) ** 2 + (pts[di, 1] - cy) ** 2)
+                        if dt > dc:
+                            ns[i] = snake[i] + 0.3 * (pts[di] - snake[i])
+                    for _ in range(3):
+                        s = ns.copy()
+                        for i in range(1, 59):
+                            s[i] = 0.5 * ns[i] + 0.25 * (ns[i - 1] + ns[i + 1])
+                        ns = s
+                    snake = ns
+
+                ideal = snake.astype(np.int32).reshape(-1, 1, 2)
+
+                # 间隙指标 (给AI分析用)
+                dc_final = np.sqrt((snake[:, 0] - cx) ** 2 + (snake[:, 1] - cy) ** 2)
+                di_arr = np.array([np.argmin(np.sqrt(
+                    (pts[:, 0] - snake[i, 0]) ** 2 + (pts[:, 1] - snake[i, 1]) ** 2))
+                    for i in range(60)])
+                dt_final = np.sqrt((pts[di_arr, 0] - cx) ** 2 + (pts[di_arr, 1] - cy) ** 2)
+                gaps = dt_final - dc_final  # 正值=绿线比白弧更外凸, 负值=绿线内收
+                gap_max = float(np.max(gaps))
+                gap_avg = float(np.mean(gaps))
+                # 分三段: 顶(0-19) 中(20-39) 底(40-59)
+                gap_top = float(np.mean(gaps[0:20]))
+                gap_mid = float(np.mean(gaps[20:40]))
+                gap_bot = float(np.mean(gaps[40:60]))
+                comp_data["gap_max"] = round(gap_max, 1)
+                comp_data["gap_avg"] = round(gap_avg, 1)
+                comp_data["gap_top"] = round(gap_top, 1)
+                comp_data["gap_mid"] = round(gap_mid, 1)
+                comp_data["gap_bot"] = round(gap_bot, 1)
+
+                overlay = result.copy()
+                cv2.polylines(overlay, [ideal], False, (60, 60, 60), 5)
+                cv2.addWeighted(overlay, 0.6, result, 0.4, 0, result)
+                overlay2 = result.copy()
+                cv2.polylines(overlay2, [ideal], False, (255, 255, 255), 2)
+                cv2.addWeighted(overlay2, 0.75, result, 0.25, 0, result)
 
         status = "圆润" if score >= 70 else ("稍扁平" if score >= 40 else "明显扁平")
         _draw_text_box(result, [

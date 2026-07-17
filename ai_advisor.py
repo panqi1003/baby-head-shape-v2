@@ -52,14 +52,20 @@ def _build_prompt(
 
     if side_measurements:
         prompt += f"""
-### 侧面图(左侧)
+### 侧面图
 - 后枕部扁平度: {side_measurements.get('posterior_flatness', 'N/A')} (0=圆润, 1=偏平)
 - 分类: {side_measurements.get('flatness_category', 'N/A')}
 """
-        if side_measurements.get('right_flatness') is not None:
-            prompt += f"""### 侧面图(右侧)
-- 后枕部扁平度: {side_measurements.get('right_flatness', 'N/A')}
-- 分类: {side_measurements.get('right_category', 'N/A')}
+        # Snake 对比间隙数据
+        gap_keys = ['gap_max', 'gap_avg', 'gap_top', 'gap_mid', 'gap_bot']
+        if any(k in side_measurements for k in gap_keys):
+            prompt += f"""- 后枕弧度对比间隙 (白弧与实测绿线的差异, 单位像素):
+  最大间隙: {side_measurements.get('gap_max', 'N/A')}
+  平均间隙: {side_measurements.get('gap_avg', 'N/A')}
+  顶部间隙: {side_measurements.get('gap_top', 'N/A')}
+  中部间隙: {side_measurements.get('gap_mid', 'N/A')}
+  底部间隙: {side_measurements.get('gap_bot', 'N/A')}
+  (间隙越大说明该区域越扁平, 顶部=头顶方向, 底部=颈部方向)
 """
     else:
         prompt += """

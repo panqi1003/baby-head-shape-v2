@@ -2,21 +2,30 @@ const app = getApp()
 
 Page({
   data: {
+    // 俯视图
     topAnnotatedImg: '', scaleNote: '',
     topCI: '', topCVAI: '', topCVA: '',
     topLength: '', topWidth: '', topCirc: '',
-    topAnalysis: {}, topSeverityTag: 'primary',
+    topDesc: '',
+    topCompareImg: '', topSimilarity: 0,
+    hasReference: false,
 
-    hasLeftSide: false, leftAnnotatedImg: '', leftAnalysis: {}, leftTagType: 'primary',
-    hasRightSide: false, rightAnnotatedImg: '', rightAnalysis: {}, rightTagType: 'primary',
+    // 侧面图（面朝右）
+    hasSide: false,
+    sideCompareImg: '', sideSimilarity: 0, sideDesc: '',
 
-    hasAI: false, aiExplanation: '', hasReference: false,
+    // 综合分析
+    hasAI: false, aiExplanation: '',
     tips: [], tummyTime: '', nextStep: '', fallbackText: ''
   },
 
   onLoad() {
     const r = app.globalData.analysisResult
-    if (!r) { wx.showToast({ title: '数据加载失败', icon: 'none' }); setTimeout(() => wx.navigateBack(), 1500); return }
+    if (!r) {
+      wx.showToast({ title: '数据加载失败', icon: 'none' })
+      setTimeout(() => wx.navigateBack(), 1500)
+      return
+    }
     this.parse(r)
   },
 
@@ -24,8 +33,10 @@ Page({
     const top = data.top || {}
     const m = top.measurements || {}
     const ta = top.analysis || {}
-    const sevToTag = { '正常': 'success', '轻度': 'warning', '中度': 'danger', '重度': 'danger' }
-    const flatToTag = { '正常圆润': 'success', '轻度扁平': 'warning', '中度扁平': 'danger', '明显扁平': 'danger' }
+
+    // 侧面
+    const side = data.sideRight
+    const hasSide = !!(side && side.analysis)
 
     // 综合分析
     const ai = data.ai || {}
@@ -33,34 +44,44 @@ Page({
     const useAI = ai && !ai.error
     const combined = useAI ? ai : fb
 
+    // 俯视描述文字 (去掉严重度标签, 纯描述)
+    const topDesc = ta.summary || ''
+
+    // 侧面描述: 基于相似度给出参考说明
+    const sideSim = (side && side.standard_compare && side.standard_compare.similarity_score) || 0
+    let sideDesc = ''
+    if (hasSide) {
+      if (sideSim >= 70) {
+        sideDesc = '后枕弧度与参考曲线接近，轮廓圆润。'
+      } else if (sideSim >= 40) {
+        sideDesc = '后枕弧度与参考曲线存在一定差异，建议关注睡姿。'
+      } else {
+        sideDesc = '后枕弧度与参考曲线差异较明显，建议定期拍照对比。'
+      }
+    }
+
     this.setData({
+      // 俯视图
       topAnnotatedImg: top.annotated_image || '',
       scaleNote: top.scale_note || '',
-      hasReference: !!top.has_reference,  // 修复: 从后端数据读取参照物检测结果
-      topCI: (m.ci || 0).toFixed(1), topCVAI: (m.cvai || 0).toFixed(1), topCVA: (m.cva_mm || 0).toFixed(1),
-      topLength: (m.head_length_mm || 0).toFixed(1), topWidth: (m.head_width_mm || 0).toFixed(1),
+      hasReference: !!top.has_reference,
+      topCI: (m.ci || 0).toFixed(1),
+      topCVAI: (m.cvai || 0).toFixed(1),
+      topCVA: (m.cva_mm || 0).toFixed(1),
+      topLength: (m.head_length_mm || 0).toFixed(1),
+      topWidth: (m.head_width_mm || 0).toFixed(1),
       topCirc: (m.head_circumference_mm || 0).toFixed(1),
-      topAnalysis: ta, topSeverityTag: sevToTag[ta.severity] || 'primary',
+      topDesc,
       topCompareImg: (top.standard_compare && top.standard_compare.image) || '',
       topSimilarity: (top.standard_compare && top.standard_compare.similarity_score) || 0,
 
-      // 左侧面
-      hasLeftSide: !!(data.sideLeft && data.sideLeft.analysis),
-      leftAnnotatedImg: (data.sideLeft && data.sideLeft.annotated_image) || '',
-      leftCompareImg: (data.sideLeft && data.sideLeft.compare_image) || '',
-      leftSimilarity: (data.sideLeft && data.sideLeft.standard_compare && data.sideLeft.standard_compare.similarity_score) || 0,
-      leftAnalysis: (data.sideLeft && data.sideLeft.analysis) || {},
-      leftTagType: flatToTag[(data.sideLeft && data.sideLeft.analysis && data.sideLeft.analysis.flatness_category)] || 'primary',
+      // 侧面图
+      hasSide,
+      sideCompareImg: (hasSide && side.compare_image) || '',
+      sideSimilarity: sideSim,
+      sideDesc,
 
-      // 右侧面
-      hasRightSide: !!(data.sideRight && data.sideRight.analysis),
-      rightAnnotatedImg: (data.sideRight && data.sideRight.annotated_image) || '',
-      rightCompareImg: (data.sideRight && data.sideRight.compare_image) || '',
-      rightSimilarity: (data.sideRight && data.sideRight.standard_compare && data.sideRight.standard_compare.similarity_score) || 0,
-      rightAnalysis: (data.sideRight && data.sideRight.analysis) || {},
-      rightTagType: flatToTag[(data.sideRight && data.sideRight.analysis && data.sideRight.analysis.flatness_category)] || 'primary',
-
-      // 综合
+      // 综合分析
       hasAI: useAI && !!ai.explanation,
       aiExplanation: (ai.explanation || '').slice(0, 300),
       tips: combined.daily_tips || [],

@@ -3,7 +3,6 @@ const app = getApp()
 Page({
   data: {
     topPhoto: '',
-    leftSidePhoto: '',
     rightSidePhoto: '',
     ageMonths: '',
     useReference: true,
@@ -12,11 +11,10 @@ Page({
     photoType: '',
     hasReference: false,
     refChecked: false,
-    guideFrameActive: true,  // 相机拍照=true, 相册选择=false
+    guideFrameActive: true,
   },
 
   takeTopPhoto() { this.setData({ photoType: 'top', guideFrameActive: true }); wx.navigateTo({ url: '/pages/camera/camera?type=top' }) },
-  takeLeftSidePhoto() { this.setData({ photoType: 'side', guideFrameActive: true }); wx.navigateTo({ url: '/pages/camera/camera?type=side&side=left' }) },
   takeRightSidePhoto() { this.setData({ photoType: 'side', guideFrameActive: true }); wx.navigateTo({ url: '/pages/camera/camera?type=side&side=right' }) },
 
   // 从相册选择照片 (无引导框对齐, 比例估算降级)
@@ -33,8 +31,6 @@ Page({
         if (type === 'top') {
           that.setData({ topPhoto: path })
           that.checkReference(path)
-        } else if (type === 'left') {
-          that.setData({ leftSidePhoto: path })
         } else if (type === 'right') {
           that.setData({ rightSidePhoto: path })
         }
@@ -49,9 +45,8 @@ Page({
 
     const sidePath = app.globalData._cameraSidePhoto
     const sideWhich = app.globalData._cameraSideWhich
-    if (sidePath && sideWhich) {
-      if (sideWhich === 'left') this.setData({ leftSidePhoto: sidePath })
-      else this.setData({ rightSidePhoto: sidePath })
+    if (sidePath && sideWhich === 'right') {
+      this.setData({ rightSidePhoto: sidePath })
       app.globalData._cameraSidePhoto = null
       app.globalData._cameraSideWhich = null
     }
@@ -132,7 +127,7 @@ Page({
           if (data.success) {
             that._topResult = data
             // 有侧面图 → 阶段2, 否则直接综合
-            if (that.data.leftSidePhoto || that.data.rightSidePhoto) {
+            if (that.data.rightSidePhoto) {
               that.step2SideAnalysis()
             } else {
               that.step3CombinedAnalysis()
@@ -154,55 +149,40 @@ Page({
     })
   },
 
-  // 阶段2: 侧面图分析 (左右分别上传)
+  // 阶段2: 侧面图分析 (单次上传)
   step2SideAnalysis() {
     const that = this
-    that._leftSideResult = null
-    that._rightSideResult = null
-    let pending = 0
+    let done = false
+    const timer = setTimeout(() => {
+      if (!done) { done = true; that.step3CombinedAnalysis() }
+    }, 15000)
 
-    const uploadSide = (filePath, sideWhich) => {
-      pending++
-      let done = false
-      const timer = setTimeout(() => {
-        if (!done) { done = true; pending--; if (pending === 0) that.step3CombinedAnalysis() }
-      }, 15000)
-
-      wx.uploadFile({
-        url: app.globalData.apiBase + '/analyze_side',
-        filePath: filePath,
-        name: 'image',
-        formData: { guide_frame: String(that.data.guideFrameActive), side: sideWhich },
-        success(res) {
-          if (done) return; done = true; clearTimeout(timer); pending--
-          try {
-            const data = JSON.parse(res.data)
-            if (data.success) {
-              data._side = sideWhich
-              if (sideWhich === 'left') that._leftSideResult = data
-              else that._rightSideResult = data
-            }
-          } catch (e) {}
-          if (pending === 0) that.step3CombinedAnalysis()
-        },
-        fail() {
-          if (done) return; done = true; clearTimeout(timer); pending--
-          if (pending === 0) that.step3CombinedAnalysis()
-        }
-      })
-    }
-
-    if (that.data.leftSidePhoto) uploadSide(that.data.leftSidePhoto, 'left')
-    if (that.data.rightSidePhoto) uploadSide(that.data.rightSidePhoto, 'right')
+    wx.uploadFile({
+      url: app.globalData.apiBase + '/analyze_side',
+      filePath: that.data.rightSidePhoto,
+      name: 'image',
+      formData: { guide_frame: String(that.data.guideFrameActive), side: 'right' },
+      success(res) {
+        if (done) return; done = true; clearTimeout(timer)
+        try {
+          const data = JSON.parse(res.data)
+          if (data.success) that._sideResult = data
+        } catch (e) {}
+        that.step3CombinedAnalysis()
+      },
+      fail() {
+        if (done) return; done = true; clearTimeout(timer)
+        that.step3CombinedAnalysis()
+      }
+    })
   },
 
-  // 阶段3: 综合分析 (有AI则调)
+  // 阶段3: 综合分析
   step3CombinedAnalysis() {
     const that = this
     const allData = {
       top: that._topResult,
-      sideLeft: that._leftSideResult || null,
-      sideRight: that._rightSideResult || null,
+      sideRight: that._sideResult || null,
     }
 
     if (that.data.useAI) {
@@ -213,10 +193,8 @@ Page({
         data: {
           top_measurements: that._topResult.measurements,
           top_analysis: that._topResult.analysis,
-          side_left_measurements: that._leftSideResult ? that._leftSideResult.measurements : null,
-          side_left_analysis: that._leftSideResult ? that._leftSideResult.analysis : null,
-          side_right_measurements: that._rightSideResult ? that._rightSideResult.measurements : null,
-          side_right_analysis: that._rightSideResult ? that._rightSideResult.analysis : null,
+          side_measurements: that._sideResult ? that._sideResult.measurements : null,
+          side_analysis: that._sideResult ? that._sideResult.analysis : null,
           age_months: (that.data.ageMonths || '') ? parseInt(that.data.ageMonths) : null
         },
         success(r) {

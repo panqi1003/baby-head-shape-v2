@@ -81,33 +81,19 @@
       </view>
     </view>
 
-    <!-- 左右侧面图并排 -->
+    <!-- 右侧面图 -->
     <view class="photo-label-row" style="margin-top:24rpx">
-      <text class="photo-label">侧面图</text>
+      <text class="photo-label">侧面图（面朝右）</text>
       <van-tag type="primary" size="mini" plain>可选</van-tag>
     </view>
-    <view class="side-row">
-      <view class="side-half">
-        <text class="side-mini-label">面朝左</text>
-        <view class="photo-box-small" bindtap="takeLeftSidePhoto" bindlongpress="chooseFromAlbum" data-type="left">
-          <image wx:if="{{leftSidePhoto}}" src="{{leftSidePhoto}}" class="photo-preview" mode="aspectFill" />
-          <view wx:else class="photo-placeholder-small">
-            <van-icon name="photograph" size="40rpx" color="#cbd5e1" />
-            <text class="photo-text-small">点击</text>
-            <text class="photo-hint-small">长按相册</text>
-          </view>
-        </view>
-      </view>
-      <view class="side-half">
-        <text class="side-mini-label">面朝右</text>
-        <view class="photo-box-small" bindtap="takeRightSidePhoto" bindlongpress="chooseFromAlbum" data-type="right">
-          <image wx:if="{{rightSidePhoto}}" src="{{rightSidePhoto}}" class="photo-preview" mode="aspectFill" />
-          <view wx:else class="photo-placeholder-small">
-            <van-icon name="photograph" size="40rpx" color="#cbd5e1" />
-            <text class="photo-text-small">点击</text>
-            <text class="photo-hint-small">长按相册</text>
-          </view>
-        </view>
+    <view class="photo-box" bindtap="takeRightSidePhoto" bindlongpress="chooseFromAlbum" data-type="right">
+      <image wx:if="{{rightSidePhoto}}" src="{{rightSidePhoto}}" class="photo-preview" mode="aspectFill" />
+      <view wx:else class="photo-placeholder">
+        <van-icon name="photograph" size="44rpx" color="#cbd5e1" />
+        <text class="photo-text">点击拍照</text>
+        <view class="hint-divider"></view>
+        <van-icon name="photo-o" size="32rpx" color="#cbd5e1" />
+        <text class="photo-hint">长按从相册选图</text>
       </view>
     </view>
 

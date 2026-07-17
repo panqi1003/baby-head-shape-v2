@@ -960,6 +960,9 @@ def analyze_head_shape(
     # Step 6: CI 计算 (基于 PCA 直接测量)
     hl_mm = length_px * scale_mm_per_px
     hw_mm = width_px * scale_mm_per_px
+    # 确保头长 ≥ 头宽，PCA v1 可能指向宽方向(扁头)，强制 swap
+    if hw_mm > hl_mm:
+        hl_mm, hw_mm = hw_mm, hl_mm
     ci = hw_mm / hl_mm * 100
 
     # 头围 (Ramanujan)

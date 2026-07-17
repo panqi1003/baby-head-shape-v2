@@ -122,6 +122,7 @@ def analyze_side_profile(image: np.ndarray) -> Optional[Dict]:
         "scale_method": "默认估算",
         "_head_contour": contour_list,
         "_pca_center": [float(cx), float(cy)],
+        "_pca_v1": [float(v1[0]), float(v1[1])],
         "_back_angles": [back_angle_start, back_angle_end],
     }
 

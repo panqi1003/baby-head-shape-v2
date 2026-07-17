@@ -46,13 +46,13 @@ def _top_analysis_text(m):
 def _side_analysis_text(flatness, score):
     """侧面图独立分析 (规则引擎)"""
     if score < 0.15:
-        return "后枕部轮廓圆润，曲率正常。"
+        return "后枕部轮廓圆润，弧度接近参考曲线。"
     elif score < 0.30:
         return "后枕部有轻微扁平迹象，建议多变换睡姿、增加俯趴时间。"
     elif score < 0.50:
         return "后枕部扁平较明显，建议关注睡姿并定期拍照对比。"
     else:
-        return "后枕部扁平明显，建议咨询儿科医生进行专业评估。"
+        return "后枕部扁平较明显，建议带照片给儿科医生参考。"
 
 app = FastAPI(title="Baby Head Shape Analyzer", version="0.2.0")
 
@@ -167,9 +167,14 @@ async def analyze_side(image: UploadFile = File(...), guide_frame: bool = Form(F
             # 标准对比图
             try:
                 from standard_compare import draw_comparison
-                comp_img, _ = draw_comparison(img, contour, view='side', side_result=result, side=side or 'left')
+                comp_img, comp_data = draw_comparison(img, contour, view='side', side_result=result, side=side or 'left')
                 _, cb = cv2.imencode('.jpg', comp_img, [cv2.IMWRITE_JPEG_QUALITY, 85])
                 compare_b64 = base64.b64encode(cb).decode('utf-8')
+                # 把 Snake 间隙指标注入 measurements, 后续传给 AI
+                if comp_data:
+                    for k in ('gap_max', 'gap_avg', 'gap_top', 'gap_mid', 'gap_bot'):
+                        if k in comp_data:
+                            result[k] = comp_data[k]
             except Exception:
                 pass
 
@@ -229,14 +234,8 @@ async def ai_analysis(request: Request):
         return JSONResponse({"success": False, "error": "JSON 格式错误"}, status_code=400)
 
     top_data = body.get("top_measurements", {})
-    side_data = body.get("side_left_measurements", None)  # 主用左侧
-    side_right = body.get("side_right_measurements", None)
+    side_data = body.get("side_measurements", None)
     age_months = body.get("age_months", None)
-
-    # 合并两侧信息
-    if side_data and side_right:
-        side_data["right_flatness"] = side_right.get("posterior_flatness")
-        side_data["right_category"] = side_right.get("flatness_category")
 
     try:
         ai_result = analyze_with_deepseek(top_data, side_data, age_months)

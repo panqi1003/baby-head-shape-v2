@@ -1,155 +1,101 @@
-<!-- 分析结果 - 三段式 -->
+<!-- 分析结果 -->
 <view class="page">
 
-  <!-- ====== 1. 俯视图分析 ====== -->
+  <!-- ====== 1. 俯视图 ====== -->
   <view class="card">
     <view class="section-head">
       <van-icon name="photo-o" size="36rpx" color="#3b82f6" />
-      <text class="section-title">俯视图分析</text>
-      <van-tag wx:if="{{topAnalysis.severity}}" type="{{topSeverityTag}}" size="mini">{{topAnalysis.severity}}</van-tag>
+      <text class="section-title">俯视图</text>
     </view>
 
+    <!-- 标注图 -->
     <image wx:if="{{topAnnotatedImg}}" src="{{topAnnotatedImg}}" class="annotated-img" mode="widthFix" />
     <view wx:else class="img-empty"><van-loading size="30rpx" color="#3b82f6" /></view>
 
-    <!-- 比例尺来源 -->
+    <!-- 比例尺 -->
     <view wx:if="{{scaleNote}}" class="scale-info">
       <van-icon name="info-o" size="28rpx" color="#3b82f6" />
       <text>{{scaleNote}}</text>
-    </view>
-
-    <!-- 图例 -->
-    <view class="legend-row">
-      <view class="legend-item">
-        <view class="legend-dot" style="background:#00c850"></view>
-        <text class="legend-name">绿线</text>
-        <text class="legend-desc">实际轮廓</text>
-      </view>
-      <view class="legend-item">
-        <view class="legend-dot" style="background:#0078dc"></view>
-        <text class="legend-name">蓝线</text>
-        <text class="legend-desc">拟合椭圆</text>
-      </view>
-      <view class="legend-item">
-        <view class="legend-dot" style="background:#dc3232"></view>
-        <text class="legend-name">红线</text>
-        <text class="legend-desc">头长</text>
-      </view>
-      <view class="legend-item">
-        <view class="legend-dot" style="background:#e6dc00"></view>
-        <text class="legend-name">黄线</text>
-        <text class="legend-desc">头宽</text>
-      </view>
     </view>
 
     <!-- 标准头型对比 -->
     <view wx:if="{{topCompareImg}}" class="compare-section">
       <view class="compare-head">
         <van-icon name="chart-trending-o" size="32rpx" color="#8b5cf6" />
-        <text class="compare-title">标准头型对比</text>
-        <van-tag wx:if="{{topSimilarity >= 85}}" type="success" size="mini">相似度 {{topSimilarity}}%</van-tag>
-        <van-tag wx:elif="{{topSimilarity >= 60}}" type="warning" size="mini">相似度 {{topSimilarity}}%</van-tag>
-        <van-tag wx:else type="danger" size="mini">相似度 {{topSimilarity}}%</van-tag>
+        <text class="compare-title">标准头型对比 · 轮廓重合度 {{topSimilarity}}%</text>
       </view>
       <image src="{{topCompareImg}}" class="compare-img" mode="widthFix" />
-      <text class="compare-legend">绿线=实测 | 白线=标准头型</text>
+      <text class="compare-legend">绿线=宝宝实测 | 白线=头型参考</text>
     </view>
 
+    <!-- 无参照物提示 -->
     <view wx:if="{{!hasReference}}" class="scale-warn">
       <van-icon name="warning-o" size="28rpx" color="#d97706" />
-      <text>未检测到参照物，使用平均头宽估算，精度较低。建议拍照时放入1元硬币作为参照。</text>
+      <text>未检测到参照物，测量精度较低。建议拍照时放入1元硬币作为参照。</text>
     </view>
 
-    <!-- 俯视测量数据 -->
+    <!-- 数据参考 -->
     <view class="data-grid">
       <view class="data-item">
         <text class="data-value">{{topCI}}</text>
         <text class="data-label">头颅指数 CI</text>
-        <text class="data-explain">头宽÷头长×100<br/>正常范围 75-85</text>
+        <text class="data-explain">头宽÷头长×100\n参考范围 75-85</text>
       </view>
       <view class="data-item">
         <text class="data-value">{{topCVAI}}%</text>
         <text class="data-label">不对称指数</text>
-        <text class="data-explain">左右不对称程度<br/>越小越对称 &lt;3.5%</text>
+        <text class="data-explain">左右不对称程度\n参考 &lt;3.5%</text>
       </view>
       <view class="data-item">
         <text class="data-value">{{topCVA}}mm</text>
         <text class="data-label">不对称值</text>
-        <text class="data-explain">对角线长度差<br/>越小越对称</text>
+        <text class="data-explain">对角线长度差\n参考 &lt;5mm</text>
       </view>
       <view class="data-item">
         <text class="data-value">{{topLength}}mm</text>
         <text class="data-label">头长</text>
-        <text class="data-explain">前后距离<br/>眉心到后脑勺</text>
+        <text class="data-explain">前后距离\n眉心到后脑勺</text>
       </view>
       <view class="data-item">
         <text class="data-value">{{topWidth}}mm</text>
         <text class="data-label">头宽</text>
-        <text class="data-explain">左右距离<br/>两耳之间的宽度</text>
+        <text class="data-explain">左右距离\n两耳之间的宽度</text>
       </view>
       <view class="data-item">
         <text class="data-value">{{topCirc}}mm</text>
-        <text class="data-label">头围</text>
-        <text class="data-explain">估算值<br/>参考头围曲线</text>
+        <text class="data-label">头围（估算）</text>
+        <text class="data-explain">基于椭圆近似\n供参考</text>
       </view>
     </view>
 
-    <!-- 俯视分析结论 -->
-    <view class="analysis-box">
+    <!-- 俯视描述 -->
+    <view wx:if="{{topDesc}}" class="analysis-box">
       <van-icon name="records" size="28rpx" color="#3b82f6" />
-      <text class="analysis-text">{{topAnalysis.summary}}</text>
+      <text class="analysis-text">{{topDesc}}</text>
     </view>
   </view>
 
-  <!-- ====== 2. 左侧面图分析 ====== -->
-  <view wx:if="{{hasLeftSide}}" class="card">
+  <!-- ====== 2. 侧面图（面朝右） ====== -->
+  <view wx:if="{{hasSide}}" class="card">
     <view class="section-head">
       <van-icon name="photo-o" size="36rpx" color="#6366f1" />
-      <text class="section-title">左侧面（面朝左）</text>
-      <van-tag wx:if="{{leftAnalysis.flatness_category}}" type="{{leftTagType}}" size="mini">{{leftAnalysis.flatness_category}}</van-tag>
+      <text class="section-title">侧面图（面朝右）</text>
     </view>
-    <image wx:if="{{leftAnnotatedImg}}" src="{{leftAnnotatedImg}}" class="annotated-img" mode="widthFix" />
-    <view class="analysis-box side-box">
-      <van-icon name="records" size="28rpx" color="#6366f1" />
-      <text class="analysis-text">{{leftAnalysis.detail}}</text>
-    </view>
-    <!-- 左侧标准对比 -->
-    <view wx:if="{{leftCompareImg}}" class="compare-section">
-      <view class="compare-head">
-        <van-icon name="chart-trending-o" size="28rpx" color="#8b5cf6" />
-        <text class="compare-title">标准头型对比</text>
-        <van-tag wx:if="{{leftSimilarity >= 70}}" type="success" size="mini">相似度 {{leftSimilarity}}%</van-tag>
-        <van-tag wx:elif="{{leftSimilarity >= 40}}" type="warning" size="mini">相似度 {{leftSimilarity}}%</van-tag>
-        <van-tag wx:else type="danger" size="mini">相似度 {{leftSimilarity}}%</van-tag>
-      </view>
-      <image src="{{leftCompareImg}}" class="compare-img" mode="widthFix" />
-      <text class="compare-legend">绿线=实测 | 白线=标准头型</text>
-    </view>
-  </view>
 
-  <!-- ====== 3. 右侧面图分析 ====== -->
-  <view wx:if="{{hasRightSide}}" class="card">
-    <view class="section-head">
-      <van-icon name="photo-o" size="36rpx" color="#6366f1" />
-      <text class="section-title">右侧面（面朝右）</text>
-      <van-tag wx:if="{{rightAnalysis.flatness_category}}" type="{{rightTagType}}" size="mini">{{rightAnalysis.flatness_category}}</van-tag>
-    </view>
-    <image wx:if="{{rightAnnotatedImg}}" src="{{rightAnnotatedImg}}" class="annotated-img" mode="widthFix" />
-    <view class="analysis-box side-box">
-      <van-icon name="records" size="28rpx" color="#6366f1" />
-      <text class="analysis-text">{{rightAnalysis.detail}}</text>
-    </view>
-    <!-- 右侧标准对比 -->
-    <view wx:if="{{rightCompareImg}}" class="compare-section">
+    <!-- 标准对比图（核心） -->
+    <view wx:if="{{sideCompareImg}}" class="compare-section">
       <view class="compare-head">
-        <van-icon name="chart-trending-o" size="28rpx" color="#8b5cf6" />
-        <text class="compare-title">标准头型对比</text>
-        <van-tag wx:if="{{rightSimilarity >= 70}}" type="success" size="mini">相似度 {{rightSimilarity}}%</van-tag>
-        <van-tag wx:elif="{{rightSimilarity >= 40}}" type="warning" size="mini">相似度 {{rightSimilarity}}%</van-tag>
-        <van-tag wx:else type="danger" size="mini">相似度 {{rightSimilarity}}%</van-tag>
+        <van-icon name="chart-trending-o" size="32rpx" color="#8b5cf6" />
+        <text class="compare-title">头型参考对比 · 轮廓重合度 {{sideSimilarity}}%</text>
       </view>
-      <image src="{{rightCompareImg}}" class="compare-img" mode="widthFix" />
-      <text class="compare-legend">绿线=实测 | 白线=标准头型</text>
+      <image src="{{sideCompareImg}}" class="compare-img" mode="widthFix" />
+      <text class="compare-legend">白弧=头型参考 | 绿线=宝宝实测</text>
+    </view>
+
+    <!-- 侧面描述 -->
+    <view wx:if="{{sideDesc}}" class="analysis-box side-box">
+      <van-icon name="records" size="28rpx" color="#6366f1" />
+      <text class="analysis-text">{{sideDesc}}</text>
     </view>
   </view>
 
@@ -166,7 +112,7 @@
       <text class="ai-explain">{{aiExplanation}}</text>
     </view>
 
-    <!-- 建议列表 -->
+    <!-- 日常建议 -->
     <view wx:if="{{tips.length > 0}}" class="tips-block">
       <text class="tips-label">
         <van-icon name="bullhorn-o" size="30rpx" color="#6366f1" /> 日常建议
@@ -184,7 +130,7 @@
       <van-tag type="primary" size="medium">{{nextStep}}</van-tag>
     </view>
 
-    <!-- 无 AI 时的回退 -->
+    <!-- 无 AI 回退 -->
     <view wx:if="{{!hasAI && fallbackText}}">
       <text class="analysis-text">{{fallbackText}}</text>
     </view>
