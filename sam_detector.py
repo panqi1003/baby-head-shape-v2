@@ -188,4 +188,14 @@ def detect_head(image: np.ndarray, view: str = 'top',
         if cnts:
             best_contour = max(cnts, key=cv2.contourArea)
 
+    # 侧面图质量门禁: mask顶部必须在画面上半区25%以内(头顶应靠近画面上缘)
+    # 头占比太小时SAM只分割到脸/身体, 漏掉头顶
+    if view == 'side' and best_mask is not None:
+        mask_rows = np.any(best_mask > 0, axis=1)
+        if mask_rows.any():
+            top_row = int(np.argmax(mask_rows))
+            ratio = top_row / (h_orig if scale != 1.0 else h)
+            if ratio > 0.25:
+                return None
+
     return best_mask, best_contour

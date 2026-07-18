@@ -178,7 +178,6 @@ Page({
             if (that.data.rightSidePhoto) {
               that.step2SideAnalysis()
             } else {
-              that.step3CombinedAnalysis()
             }
           } else {
             that.setData({ analyzing: false })
@@ -202,7 +201,6 @@ Page({
     const that = this
     let done = false
     const timer = setTimeout(() => {
-      if (!done) { done = true; that.step3CombinedAnalysis() }
     }, 15000)
 
     wx.uploadFile({
@@ -214,13 +212,11 @@ Page({
         if (done) return; done = true; clearTimeout(timer)
         try {
           const data = JSON.parse(res.data)
-          if (data.success) that._sideResult = data
+          if (data.success) { that._sideResult = data; that.step3CombinedAnalysis(); } else { that.setData({ analyzing: false, rightSidePhoto: '' }); wx.showToast({ title: '侧面照片未能识别头部，请靠近拍摄让头部填满画面后重试', icon: 'none', duration: 4000 }); }
         } catch (e) {}
-        that.step3CombinedAnalysis()
       },
       fail() {
         if (done) return; done = true; clearTimeout(timer)
-        that.step3CombinedAnalysis()
       }
     })
   },

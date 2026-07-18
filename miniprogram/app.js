@@ -1,7 +1,7 @@
 App({
   globalData: {
     // 后端 API 地址 — 部署后改成云托管域名
-    apiBase: 'http://192.168.3.9:8000',
+    apiBase: 'http://localhost:8000',
     // 分析结果 (跨页面传递)
     analysisResult: null
   },

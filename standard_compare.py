@@ -188,13 +188,6 @@ def draw_comparison(image, user_contour, view='top', side_result=None, side='lef
 
         score, ci_dev = compute_top_similarity(user_contour)
         comp_data = {"similarity_score": score, "ci_deviation": ci_dev}
-        status = "头型接近标准" if score >= 85 else ("有轻微偏差" if score >= 60 else "偏差较明显")
-        advice = "继续保持!" if score >= 85 else ("建议多换睡姿" if score >= 60 else "建议关注调整")
-        _draw_text_box(result, [
-            f"头型相似度 {score}%  {status}",
-            f"头型指数偏差 {ci_dev}%  (正常 75-85)",
-            f"绿线=宝宝  白线=标准  {advice}",
-        ], 12, h - 12, font_scale=0.60)
 
         # 白线轮廓
         overlay = result.copy()
@@ -289,18 +282,6 @@ def draw_comparison(image, user_contour, view='top', side_result=None, side='lef
                 cv2.polylines(overlay2, [ideal], False, (255, 255, 255), 3)
                 cv2.addWeighted(overlay2, 0.75, result, 0.25, 0, result)
 
-        status = "圆润" if score >= 70 else ("稍扁平" if score >= 40 else "明显扁平")
-        _draw_text_box(result, [
-            f"后枕圆润度 {score}%  {status}",
-            f"白弧=理想弧度  绿线=实测",
-        ], 12, h - 12, font_scale=0.60)
 
-    # 图例
-    legend_y = 36
-    font_legend = cv2.FONT_HERSHEY_SIMPLEX
-    cv2.circle(result, (w - 130, legend_y), 7, (0, 230, 50), -1)
-    cv2.putText(result, "宝宝实测", (w - 116, legend_y + 6), font_legend, 0.55, (255, 255, 255), 1, cv2.LINE_AA)
-    cv2.circle(result, (w - 130, legend_y + 28), 7, (255, 255, 255), -1)
-    cv2.putText(result, "标准", (w - 116, legend_y + 34), font_legend, 0.55, (255, 255, 255), 1, cv2.LINE_AA)
 
     return result, comp_data
