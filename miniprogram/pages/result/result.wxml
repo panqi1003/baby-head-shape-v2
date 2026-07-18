@@ -54,12 +54,6 @@
       <text class="compare-legend">绿线=宝宝实测 | 白线=头型参考</text>
     </view>
 
-    <!-- 无参照物提示 -->
-    <view wx:if="{{!hasReference}}" class="scale-warn">
-      <van-icon name="warning-o" size="28rpx" color="#d97706" />
-      <text>未检测到参照物，测量精度较低。建议拍照时放入1元硬币作为参照。</text>
-    </view>
-
     <!-- 数据参考 -->
     <view class="data-grid">
       <view class="data-item">
