@@ -970,7 +970,7 @@ def analyze_head_shape(
     severity = classify_severity(ci, cvai)
 
     # 置信度估算 (考虑SAM质量+头发干扰+参照物)
-    confidence = 0.50  # SAM分割成功→基础分
+    confidence = 0.60  # SAM分割成功→基础分
     # 轮廓点数: >500点质量较好
     contour_len = len(head_contour)
     if contour_len > 500:
@@ -981,12 +981,12 @@ def analyze_head_shape(
         confidence += 0.05
     # 头发干扰: 干扰大扣分
     if hair_score > 0.3:
-        confidence -= 0.15
+        confidence -= 0.10
     # 参照物
     if coin_info is not None:
         confidence += 0.20
     else:
-        confidence += 0.05
+        confidence += 0.10
     confidence = max(0.1, min(1.0, confidence))
 
     measurements = HeadMeasurements(

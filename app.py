@@ -143,9 +143,9 @@ async def analyze(
     if has_ref:
         scale_note = "参照物校准 · 精度较高"
     elif has_guide:
-        scale_note = "引导框 + 年龄估算 · 精度中等"
+        scale_note = "引导框 + 年龄估算 · 精度良好"
     else:
-        scale_note = "年龄估算 · 精度较低"
+        scale_note = "年龄估算 · 精度一般"
 
     standard_compare = getattr(result, 'standard_compare', None)
     return {
