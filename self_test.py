@@ -40,11 +40,13 @@ def test_sam_top():
     from sam_detector import detect_head
     img = make_top_synthetic()
     result = detect_head(img, view='top')
-    assert result is not None, "俯视图 SAM 检测失败!"
+    if result is None:
+        raise RuntimeError("俯视图 SAM 检测失败!")
     mask, contour = result
     h, w = mask.shape
     area_pct = mask.sum() / 255 / (h*w) * 100
-    assert 10 < area_pct < 60, f"俯视图 mask 面积异常: {area_pct:.1f}%"
+    if not (10 < area_pct < 60):
+        raise RuntimeError(f"俯视图 mask 面积异常: {area_pct:.1f}%")
     print(f"  [PASS] 俯视图 SAM: area={area_pct:.1f}%, contour_pts={len(contour)}")
     return result
 
@@ -54,15 +56,18 @@ def test_sam_side():
     from sam_detector import detect_head
     img = make_side_synthetic()
     result = detect_head(img, view='side')
-    assert result is not None, "侧面图 SAM 检测失败!"
+    if result is None:
+        raise RuntimeError("侧面图 SAM 检测失败!")
     mask, contour = result
     h, w = mask.shape
     area_pct = mask.sum() / 255 / (h*w) * 100
-    assert 10 < area_pct < 60, f"侧面图 mask 面积异常: {area_pct:.1f}%"
+    if not 10 < area_pct < 60:
+        raise RuntimeError(f"侧面图 mask 面积异常: {area_pct:.1f}%")
     # 检查是否覆盖左右两侧 (span check)
     h, w = img.shape[:2]
     left_frac = mask[:, :w//2].sum() / max(mask.sum(), 1)
-    assert 0.15 < left_frac < 0.85, f"侧面图 mask 偏一侧: left_frac={left_frac:.2f}"
+    if not (0.15 < left_frac < 0.85):
+        raise RuntimeError(f"侧面图 mask 偏一侧: left_frac={left_frac:.2f}")
     print(f"  [PASS] 侧面图 SAM: area={area_pct:.1f}%, left_frac={left_frac:.2f}, contour_pts={len(contour)}")
     return result
 
@@ -74,12 +79,12 @@ def test_head_analyzer():
     result = analyze_head_shape(img, reference_mm=25.0,
                                 auto_detect_reference=True, use_reference=True,
                                 guide_frame=True)
-    assert result.success, f"俯视图分析失败: {result.error_message}"
+    if not result.success: raise RuntimeError(f"俯视图分析失败: {result.error_message}")
     m = result.measurements
     # 验证基本合理性
-    assert 60 < m.head_length_mm < 200, f"头长异常: {m.head_length_mm}"
-    assert 50 < m.head_width_mm < 180, f"头宽异常: {m.head_width_mm}"
-    assert 70 < m.ci < 125, f"CI 异常: {m.ci}"
+    if not (60 < m.head_length_mm < 200): raise RuntimeError(f"头长异常: {m.head_length_mm}")
+    if not (50 < m.head_width_mm < 180): raise RuntimeError(f"头宽异常: {m.head_width_mm}")
+    if not (70 < m.ci < 125): raise RuntimeError(f"CI 异常: {m.ci}")
     print(f"  [PASS] 俯视图分析: 头长={m.head_length_mm:.0f}mm 头宽={m.head_width_mm:.0f}mm "
           f"CI={m.ci:.1f} CVAI={m.cvai:.1f}% severity={m.severity.value}")
     return result
@@ -90,12 +95,13 @@ def test_side_analyzer():
     from side_analyzer import analyze_side_profile
     img = make_side_synthetic()
     result = analyze_side_profile(img)
-    assert result is not None, "侧面图分析失败!"
-    assert 'posterior_flatness' in result
-    assert 'flatness_category' in result
+    if result is None:
+        raise RuntimeError("侧面图分析失败!")
+    if 'posterior_flatness' not in result: raise RuntimeError('result缺少posterior_flatness字段')
+    if 'flatness_category' not in result: raise RuntimeError('result缺少flatness_category字段')
     flat = result['posterior_flatness']
     cat = result['flatness_category']
-    assert 0 <= flat <= 1, f"扁平度异常: {flat}"
+    if not (0 <= flat <= 1): raise RuntimeError(f"扁平度异常: {flat}")
     print(f"  [PASS] 侧面图分析: flatness={flat:.3f} category={cat} "
           f"head_length={result.get('head_length_px', '?')}px")
     return result
@@ -110,9 +116,9 @@ def test_ai_advisor():
 
     # 测试回退逻辑 (不调 API, 防超时)
     fb = generate_fallback_advice(top_data, side_data)
-    assert fb, "回退建议生成失败!"
-    assert 'explanation' in fb or 'summary' in fb, f"回退缺少 explanation/summary: {fb.keys()}"
-    assert 'daily_tips' in fb, "回退缺少 daily_tips"
+    if not fb: raise RuntimeError("回退建议生成失败!")
+    if not ('explanation' in fb or 'summary' in fb): raise RuntimeError(f"回退缺少 explanation/summary: {fb.keys()}")
+    if 'daily_tips' not in fb: raise RuntimeError("回退缺少 daily_tips")
     print(f"  [PASS] AI 回退: summary={fb.get('summary', fb.get('explanation', ''))[:60]}...")
     return fb
 
@@ -129,7 +135,7 @@ def test_full_pipeline():
     top_result = analyze_head_shape(top_img, reference_mm=25.0,
                                     auto_detect_reference=True, use_reference=True,
                                     guide_frame=True)
-    assert top_result.success, f"阶段1失败: {top_result.error_message}"
+    if not top_result.success: raise RuntimeError(f"阶段1失败: {top_result.error_message}")
     m = top_result.measurements
     top_data = {"ci": m.ci, "cvai": m.cvai, "cva_mm": m.cva_mm, "severity": m.severity.value,
                 "head_length_mm": m.head_length_mm, "head_width_mm": m.head_width_mm}
@@ -138,15 +144,43 @@ def test_full_pipeline():
     # 阶段2: 左右侧面
     side_img = make_side_synthetic()
     side_result = analyze_side_profile(side_img)
-    assert side_result is not None, "阶段2失败"
+    if side_result is None: raise RuntimeError("阶段2失败")
     print(f"  阶段2 [PASS]: flatness={side_result['posterior_flatness']:.3f} {side_result['flatness_category']}")
 
     # 阶段3: 综合分析
     fb = generate_fallback_advice(top_data, side_result)
-    assert fb and 'daily_tips' in fb, "阶段3失败"
+    if not (fb and 'daily_tips' in fb): raise RuntimeError("阶段3失败")
     print(f"  阶段3 [PASS]: tips数={len(fb.get('daily_tips',[]))} next_step={fb.get('next_step','')}")
 
     print("  [PASS] 端到端流程通过!")
+
+
+def test_edge_cases():
+    """边界测试: 极小图/纯黑图应优雅失败不崩溃"""
+    from head_analyzer import analyze_head_shape
+    from side_analyzer import analyze_side_profile
+
+    results = []
+
+    # 极小图
+    tiny = np.ones((50, 50, 3), dtype=np.uint8) * 200
+    r = analyze_head_shape(tiny, use_reference=False, auto_detect_reference=False)
+    results.append(("极小俯视图不崩溃", not r.success))
+
+    # 纯黑图
+    black = np.zeros((500, 500, 3), dtype=np.uint8)
+    r2 = analyze_head_shape(black, use_reference=False, auto_detect_reference=False)
+    results.append(("纯黑俯视图不崩溃", not r2.success))
+
+    # 侧面极小
+    r3 = analyze_side_profile(tiny)
+    results.append(("极小侧面图不崩溃", r3 is None))
+
+    for name, ok in results:
+        status = "PASS" if ok else "FAIL"
+        print(f"  [{status}] 边界测试: {name}")
+
+    return results
 
 
 if __name__ == '__main__':
@@ -163,13 +197,18 @@ if __name__ == '__main__':
         ("侧面图分析器", test_side_analyzer),
         ("AI 回退建议", test_ai_advisor),
         ("端到端流程", test_full_pipeline),
+        ("边界测试", test_edge_cases),
     ]
 
     for name, fn in tests:
         total += 1
         try:
             print(f"\n[{name}]")
-            fn()
+            result = fn()
+            if name == "边界测试":
+                ok = all(r[1] for r in result)
+                if not ok:
+                    raise RuntimeError("边界测试未全部通过")
             passed += 1
         except Exception as e:
             print(f"  [FAIL] 失败: {e}")

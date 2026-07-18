@@ -101,10 +101,10 @@ def detect_head(image: np.ndarray, view: str = 'top',
     """
     h_orig, w_orig = image.shape[:2]
 
-    # 缩小到 540px
-    max_side = 540
-    if max(h_orig, w_orig) > max_side:
-        scale = max_side / max(h_orig, w_orig)
+    # 缩小到 SAM 最优处理尺寸 (跳过中间层缩放, 避免双重重采样)
+    sam_max_side = 1024
+    if max(h_orig, w_orig) > sam_max_side:
+        scale = sam_max_side / max(h_orig, w_orig)
         image_small = cv2.resize(image, (int(w_orig * scale), int(h_orig * scale)))
     else:
         scale = 1.0

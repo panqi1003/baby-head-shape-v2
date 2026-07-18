@@ -174,6 +174,7 @@ Page({
           const data = JSON.parse(res.data)
           if (data.success) {
             that._topResult = data
+            wx.setStorageSync('_topResult', data)
             // 有侧面图 → 阶段2, 否则直接综合
             if (that.data.rightSidePhoto) {
               that.step2SideAnalysis()
@@ -201,6 +202,11 @@ Page({
     const that = this
     let done = false
     const timer = setTimeout(() => {
+      if (!done) {
+        done = true
+        that.setData({ analyzing: false, rightSidePhoto: '' })
+        wx.showToast({ title: '侧面图分析超时，请重试', icon: 'none', duration: 3000 })
+      }
     }, 15000)
 
     wx.uploadFile({
@@ -212,11 +218,23 @@ Page({
         if (done) return; done = true; clearTimeout(timer)
         try {
           const data = JSON.parse(res.data)
-          if (data.success) { that._sideResult = data; that.step3CombinedAnalysis(); } else { that.setData({ analyzing: false, rightSidePhoto: '' }); wx.showToast({ title: '侧面照片未能识别头部，请靠近拍摄让头部填满画面后重试', icon: 'none', duration: 4000 }); }
-        } catch (e) {}
+          if (data.success) {
+            that._sideResult = data
+            wx.setStorageSync('_sideResult', data)
+            that.step3CombinedAnalysis()
+          } else {
+            that.setData({ analyzing: false, rightSidePhoto: '' })
+            wx.showToast({ title: '侧面照片未能识别头部，请靠近拍摄让头部填满画面后重试', icon: 'none', duration: 4000 })
+          }
+        } catch (e) {
+          that.setData({ analyzing: false })
+          wx.showToast({ title: '侧面分析响应异常，请重试', icon: 'none', duration: 3000 })
+        }
       },
       fail() {
         if (done) return; done = true; clearTimeout(timer)
+        that.setData({ analyzing: false, rightSidePhoto: '' })
+        wx.showToast({ title: '侧面分析网络失败，请检查网络后重试', icon: 'none', duration: 3000 })
       }
     })
   },

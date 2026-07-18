@@ -5,12 +5,17 @@ Multi-angle + DeepSeek AI
 
 import base64
 import cv2
+import logging
+import os
 import numpy as np
 from pathlib import Path
 from typing import Optional
-from fastapi import FastAPI, File, Form, UploadFile, Request
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+
+logging.basicConfig(level=logging.WARNING, format='%(asctime)s %(levelname)s %(message)s')
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10MB
 
 try:
     from dotenv import load_dotenv
@@ -56,6 +61,16 @@ def _side_analysis_text(flatness, score):
 
 app = FastAPI(title="Baby Head Shape Analyzer", version="0.2.0")
 
+# API 鉴权: 非生产环境跳过
+_API_KEY = os.environ.get("API_SECRET_KEY", "")
+
+@app.middleware("http")
+async def auth_middleware(request: Request, call_next):
+    if _API_KEY and request.url.path.startswith("/analyze"):
+        if request.headers.get("X-API-Key") != _API_KEY:
+            return JSONResponse({"detail": "Unauthorized"}, status_code=401)
+    return await call_next(request)
+
 BASE_DIR = Path(__file__).parent
 static_dir = BASE_DIR / "static"
 static_dir.mkdir(exist_ok=True)
@@ -64,11 +79,16 @@ INDEX_HTML = (BASE_DIR / "templates" / "index.html").read_text(encoding="utf-8")
 
 
 def _read_img(upload: UploadFile, max_side: int = 1200) -> Optional[np.ndarray]:
-    contents = upload.file.read()
+    """读取上传图片，超过大小限制返回None"""
+    contents = upload.file.read(MAX_UPLOAD_BYTES + 1)
+    if len(contents) > MAX_UPLOAD_BYTES:
+        logging.warning(f"上传文件超限: {len(contents)} bytes")
+        return None
     np_arr = np.frombuffer(contents, np.uint8)
     img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
     if img is None:
         return None
+    del contents  # 显式释放
     h, w = img.shape[:2]
     if max(h, w) > max_side:
         scale = max_side / max(h, w)
@@ -176,7 +196,7 @@ async def analyze_side(image: UploadFile = File(...), guide_frame: bool = Form(F
                         if k in comp_data:
                             result[k] = comp_data[k]
             except Exception:
-                pass
+                logging.warning("侧面对比图生成失败", exc_info=True)
 
         flatness = result.get('flatness_category', '')
         flatness_score = result.get('posterior_flatness', 0)
@@ -198,7 +218,8 @@ async def analyze_side(image: UploadFile = File(...), guide_frame: bool = Form(F
             "compare_image": f"data:image/jpeg;base64,{compare_b64}" if compare_b64 else None,
         }
     except Exception as e:
-        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+        logging.error(f"分析异常", exc_info=True)
+        return JSONResponse({"success": False, "error": "分析过程中出错，请重试"}, status_code=500)
 
 
 @app.post("/check_reference")
@@ -234,7 +255,9 @@ async def ai_analysis(request: Request):
         return JSONResponse({"success": False, "error": "JSON 格式错误"}, status_code=400)
 
     top_data = body.get("top_measurements", {})
-    side_data = body.get("side_measurements", None)
+    side_raw = body.get("side_measurements", None)
+    # 过滤内部字段(_前缀)不传给第三方
+    side_data = {k: v for k, v in side_raw.items() if not k.startswith("_")} if side_raw else None
     age_months = body.get("age_months", None)
 
     try:
@@ -242,7 +265,8 @@ async def ai_analysis(request: Request):
         fallback = generate_fallback_advice(top_data, side_data)
         return {"success": True, "ai_analysis": ai_result, "fallback_advice": fallback}
     except Exception as e:
-        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+        logging.error(f"分析异常", exc_info=True)
+        return JSONResponse({"success": False, "error": "分析过程中出错，请重试"}, status_code=500)
 
 
 if __name__ == "__main__":

@@ -2,12 +2,8 @@ const app = getApp()
 
 Page({
   data: {
-    photoType: 'top'  // 'top' or 'side'
-  },
-
-  data: {
     photoType: 'top',
-    side: ''  // left/right
+    side: ''
   },
 
   onLoad(options) {

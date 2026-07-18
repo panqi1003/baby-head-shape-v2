@@ -363,30 +363,23 @@ def detect_hair_interference(contour: np.ndarray) -> float:
     检测头发干扰程度 (0=无干扰, 1=严重干扰)。
 
     原理:
-      1. 先用 Douglas-Peucker 平滑去除 SAM 像素锯齿
-      2. 再计算轮廓不规则度 = 周长/等面积椭圆周长
-      3. 综合纹理特征 (在轮廓外侧区域检测高频纹理 → 头发)
+      1. 原始周长 vs DP平滑后周长比 — 头发毛刺拉高粗糙度
+      2. 与CI解耦(旧算法用等面积圆周长做基准, 椭圆会被误判)
     """
     area = cv2.contourArea(contour)
     if area < 1:
         return 0.0
 
-    # 平滑: 去除 SAM 输出的像素级锯齿 (epsilon = 0.5% 轮廓弧长)
-    arc_len = cv2.arcLength(contour, True)
-    epsilon = arc_len * 0.005
+    raw_perimeter = cv2.arcLength(contour, True)
+    epsilon = raw_perimeter * 0.005
     smooth = cv2.approxPolyDP(contour, epsilon, True)
-
     smooth_perimeter = cv2.arcLength(smooth, True)
-    # 等面积正圆周长
-    ideal_perimeter = 2 * math.pi * math.sqrt(area / math.pi)
-    if ideal_perimeter < 1:
+    if smooth_perimeter < 1:
         return 0.0
 
-    # 平滑后的不规则度: 1.0=完美圆, >1.03=有头发
-    irregularity = smooth_perimeter / ideal_perimeter
-
-    # 映射: 1.00=0%, 1.03=30%, 1.08=60%, 1.15+=100%
-    hair_score = max(0, min(1.0, (irregularity - 1.0) / 0.12))
+    # 粗糙度 = 原始/平滑: 1.0=完美, >1.02=有细碎毛刺
+    roughness = raw_perimeter / smooth_perimeter
+    hair_score = max(0, min(1.0, (roughness - 1.0) / 0.08))
     return round(hair_score, 2)
 
 
@@ -406,9 +399,15 @@ def build_hair_mask(image: np.ndarray, head_mask: np.ndarray) -> np.ndarray:
     hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
     gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
 
-    # 特征1: 深色 = 头发候选
+    # 特征1: 深色 = 头发候选 (Otsu自适应阈值, 替代固定V<80)
     _, _, v_channel = cv2.split(hsv)
-    dark_mask = (v_channel < 80).astype(np.uint8) * 255
+    v_vals = v_channel[head_mask > 0]
+    if len(v_vals) > 100:
+        otsu_thresh, _ = cv2.threshold(v_vals, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        v_threshold = int(otsu_thresh * 0.75)
+    else:
+        v_threshold = 80  # 回退
+    dark_mask = (v_channel < v_threshold).astype(np.uint8) * 255
     dark_mask = cv2.bitwise_and(dark_mask, dark_mask, mask=head_mask)
 
     # 特征2: 纹理密度 (局部标准差)
@@ -980,16 +979,25 @@ def analyze_head_shape(
     # Step 8: 分级
     severity = classify_severity(ci, cvai)
 
-    # 置信度估算
-    confidence = 0.4
-    skin_ratio = np.sum(head_mask > 0) / (h * w)
-    if 0.05 < skin_ratio < 0.5:
-        confidence += 0.15
+    # 置信度估算 (考虑SAM质量+头发干扰+参照物)
+    confidence = 0.50  # SAM分割成功→基础分
+    # 轮廓点数: >500点质量较好
+    contour_len = len(head_contour)
+    if contour_len > 500:
+        confidence += 0.10
+    # 面积比: 5%~50%为合理范围
+    head_area_ratio = cv2.contourArea(head_contour) / (h * w)
+    if 0.05 < head_area_ratio < 0.50:
+        confidence += 0.05
+    # 头发干扰: 干扰大扣分
+    if hair_score > 0.3:
+        confidence -= 0.15
+    # 参照物
     if coin_info is not None:
-        confidence += 0.35  # 有参照物 → 高置信度
+        confidence += 0.20
     else:
-        confidence += 0.10  # 无参照物 → 基础置信度
-    confidence = min(confidence, 1.0)
+        confidence += 0.05
+    confidence = max(0.1, min(1.0, confidence))
 
     measurements = HeadMeasurements(
         head_length_mm=round(hl_mm, 1),
@@ -1013,7 +1021,7 @@ def analyze_head_shape(
     # 标准头型对比
     try:
         from standard_compare import draw_comparison
-        comp_img, comp_data = draw_comparison(image, head_contour, view='top')
+        comp_img, comp_data = draw_comparison(image, head_contour, view='top', age_months=age_months)
         _, comp_buf = cv2.imencode('.jpg', comp_img, [cv2.IMWRITE_JPEG_QUALITY, 85])
         import base64
         result.standard_compare = {

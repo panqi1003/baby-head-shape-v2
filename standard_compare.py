@@ -109,16 +109,34 @@ def _align_and_scale_contour(std_data, user_contour, h, w):
         aligned[:, 0] = (aligned[:, 0] - scx) * scale + ucx
         aligned[:, 1] = (aligned[:, 1] - scy) * scale + ucy
         return aligned.astype(np.int32).reshape(-1, 1, 2)
-def compute_top_similarity(user_contour):
+# 各月龄参考理想CI值 (WHO/流行病学文献综合)
+_IDEAL_CI_BY_AGE = {
+    0: 80, 1: 81, 2: 82, 3: 82, 4: 83, 5: 83, 6: 82,
+    7: 82, 8: 81, 9: 81, 10: 80, 11: 80, 12: 79,
+    15: 79, 18: 78, 21: 78, 24: 78,
+}
+
+
+def _ideal_ci_for_age(age_months):
+    """按月龄查理想CI值, 未提供月龄默认78"""
+    if age_months is None:
+        return 78
+    # 找最接近的月龄
+    ages = sorted(_IDEAL_CI_BY_AGE.keys())
+    for a in ages:
+        if age_months <= a:
+            return _IDEAL_CI_BY_AGE[a]
+    return _IDEAL_CI_BY_AGE[ages[-1]]
+
+
+def compute_top_similarity(user_contour, age_months=None):
     """
     俯视图相似度: 基于 CI 偏离度
-    理想 CI=78, 每偏差 1% 扣 2 分
-    CVAI < 3.5% 满分, 每超 1% 扣 10 分
+    理想 CI 按月龄查表(默认78), 每偏差 1% 扣 2 分
     """
     if user_contour is None or len(user_contour) < 20:
         return 0, 999
 
-    # 用椭圆拟合估算 CI
     pts = user_contour.reshape(-1, 2).astype(np.float32)
     if len(pts) < 5:
         return 0, 999
@@ -127,7 +145,8 @@ def compute_top_similarity(user_contour):
         ellipse = cv2.fitEllipse(pts)
         (cx, cy), (major, minor), angle = ellipse
         ci_est = min(major, minor) / max(major, minor) * 100
-        ci_dev = abs(ci_est - 78)
+        ideal = _ideal_ci_for_age(age_months)
+        ci_dev = abs(ci_est - ideal)
         ci_score = max(0, 100 - ci_dev * 2)
     except Exception:
         ci_score, ci_dev = 50, 99
@@ -166,7 +185,7 @@ def _draw_text_box(img, lines, x, y, font_scale=0.6, color=(255, 255, 255), bg_a
         cv2.putText(img, line, (x, cy), font, font_scale, color, thickness, cv2.LINE_AA)
 
 
-def draw_comparison(image, user_contour, view='top', side_result=None, side='left'):
+def draw_comparison(image, user_contour, view='top', side_result=None, side='left', age_months=None):
     """
     俯视图: 标准椭圆+动态对齐
     侧面图: PCA理想圆弧(不依赖标准图片)
@@ -186,7 +205,7 @@ def draw_comparison(image, user_contour, view='top', side_result=None, side='lef
         if ideal_contour is None:
             return result, {"similarity_score": 0}
 
-        score, ci_dev = compute_top_similarity(user_contour)
+        score, ci_dev = compute_top_similarity(user_contour, age_months)
         comp_data = {"similarity_score": score, "ci_deviation": ci_dev}
 
         # 白线轮廓

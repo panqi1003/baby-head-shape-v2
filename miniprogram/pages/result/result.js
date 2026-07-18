@@ -20,7 +20,15 @@ Page({
   },
 
   onLoad() {
-    const r = app.globalData.analysisResult
+    let r = app.globalData.analysisResult
+    // 内存中无数据时从Storage恢复
+    if (!r) {
+      const top = wx.getStorageSync('_topResult')
+      const side = wx.getStorageSync('_sideResult')
+      if (top) {
+        r = { top, sideRight: side || null }
+      }
+    }
     if (!r) {
       wx.showToast({ title: '数据加载失败', icon: 'none' })
       setTimeout(() => wx.navigateBack(), 1500)
