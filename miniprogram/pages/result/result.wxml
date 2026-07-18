@@ -70,12 +70,12 @@
       <view class="data-item">
         <text class="data-value">{{topCVAI}}%</text>
         <text class="data-label">不对称指数</text>
-        <text class="data-explain">左右不对称程度\n参考 &lt;3.5%</text>
+        <text class="data-explain">左右不对称程度\n正常 小于3.5%</text>
       </view>
       <view class="data-item">
         <text class="data-value">{{topCVA}}mm</text>
         <text class="data-label">不对称值</text>
-        <text class="data-explain">对角线长度差\n参考 &lt;5mm</text>
+        <text class="data-explain">对角线长度差\n正常 小于5mm</text>
       </view>
       <view class="data-item">
         <text class="data-value">{{topLength}}mm</text>
