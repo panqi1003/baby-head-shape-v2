@@ -16,36 +16,32 @@
     <view class="legend-row">
       <view class="legend-item">
         <view class="legend-dot" style="background:#00c850"></view>
-        <text class="legend-name">绿线</text>
-        <text class="legend-desc">实际轮廓</text>
+        <text class="legend-name">实际轮廓</text>
       </view>
       <view class="legend-item">
         <view class="legend-dot" style="background:#0078dc"></view>
-        <text class="legend-name">蓝线</text>
-        <text class="legend-desc">拟合椭圆</text>
+        <text class="legend-name">拟合椭圆</text>
       </view>
       <view class="legend-item">
         <view class="legend-dot" style="background:#dc3232"></view>
-        <text class="legend-name">红线</text>
-        <text class="legend-desc">头长</text>
+        <text class="legend-name">头长轴</text>
       </view>
       <view class="legend-item">
         <view class="legend-dot" style="background:#e6dc00"></view>
-        <text class="legend-name">黄线</text>
-        <text class="legend-desc">头宽</text>
+        <text class="legend-name">头宽轴</text>
       </view>
     </view>
 
-    <!-- 比例尺 -->
-    <view wx:if="{{scaleNote}}" class="scale-info">
-      <van-icon name="info-o" size="28rpx" color="#3b82f6" />
-      <text>{{scaleNote}}</text>
-    </view>
-
-    <!-- 置信度 -->
-    <view wx:if="{{topConfidence > 0}}" class="scale-info" style="margin-top:8rpx">
-      <van-icon name="star-o" size="28rpx" color="#22c55e" />
-      <text>数据可信度 {{topConfidence}}%</text>
+    <!-- 比例尺 + 置信度 并排 -->
+    <view class="meta-row">
+      <view wx:if="{{scaleNote}}" class="meta-item meta-scale">
+        <van-icon name="info-o" size="26rpx" color="#3b82f6" />
+        <text>{{scaleNote}}</text>
+      </view>
+      <view wx:if="{{topConfidence > 0}}" class="meta-item meta-conf">
+        <van-icon name="star-o" size="26rpx" color="#22c55e" />
+        <text>可信度 {{topConfidence}}%</text>
+      </view>
     </view>
 
     <!-- 标准头型对比 -->

@@ -6,11 +6,16 @@
 }
 .section-title { font-size: 30rpx; font-weight: 600; flex: 1; }
 
-/* 比例尺来源 */
-.scale-info {
-  display: flex; align-items: center; gap: 10rpx;
-  padding: 14rpx 0; font-size: 24rpx; color: #3b82f6;
+/* 比例尺来源 + 置信度 并排 */
+.meta-row {
+  display: flex; gap: 16rpx; margin-top: 8rpx;
 }
+.meta-item {
+  flex: 1; display: flex; align-items: center; gap: 8rpx;
+  padding: 14rpx 16rpx; font-size: 22rpx; border-radius: 10rpx;
+}
+.meta-scale { background: #eff6ff; color: #3b82f6; }
+.meta-conf  { background: #f0fdf4; color: #16a34a; }
 
 /* 标注图 */
 .annotated-img { width: 100%; border-radius: 16rpx 16rpx 0 0; }
@@ -23,9 +28,8 @@
   flex-wrap: wrap;
 }
 .legend-item { text-align: center; }
-.legend-name { display: block; font-size: 24rpx; font-weight: 600; color: #374151; }
-.legend-desc { display: block; font-size: 20rpx; color: #9ca3af; margin-top: 2rpx; }
-.legend-dot { width: 14rpx; height: 14rpx; border-radius: 50%; margin: 0 auto 6rpx; }
+.legend-name { display: block; font-size: 22rpx; color: #64748b; margin-top: 4rpx; }
+.legend-dot { width: 14rpx; height: 14rpx; border-radius: 50%; margin: 0 auto; }
 .img-empty { text-align: center; padding: 60rpx 0; }
 
 .scale-warn {
@@ -38,14 +42,14 @@
 /* 数据网格 */
 .data-grid { display: flex; flex-wrap: wrap; margin-top: 20rpx; }
 .data-item {
-  width: 33.33%; text-align: center; padding: 20rpx 8rpx; box-sizing: border-box;
+  width: 50%; text-align: center; padding: 24rpx 12rpx; box-sizing: border-box;
   border-right: 1rpx solid #f1f5f9; border-bottom: 1rpx solid #f1f5f9;
 }
-.data-item:nth-child(3n) { border-right: none; }
-.data-item:nth-child(n+4) { border-bottom: none; }
-.data-value { font-size: 34rpx; font-weight: 700; color: #1e293b; display: block; }
-.data-label { font-size: 22rpx; color: #94a3b8; display: block; margin-top: 4rpx; }
-.data-explain { font-size: 20rpx; color: #cbd5e1; display: block; margin-top: 4rpx; line-height: 1.4; }
+.data-item:nth-child(2n) { border-right: none; }
+.data-item:nth-child(n+5) { border-bottom: none; }
+.data-value { font-size: 36rpx; font-weight: 700; color: #1e293b; display: block; }
+.data-label { font-size: 24rpx; color: #64748b; display: block; margin-top: 6rpx; }
+.data-explain { font-size: 20rpx; color: #94a3b8; display: block; margin-top: 6rpx; line-height: 1.5; }
 
 /* 分析结论框 */
 .analysis-box {

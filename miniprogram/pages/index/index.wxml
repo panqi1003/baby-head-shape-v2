@@ -73,11 +73,8 @@
     <view class="photo-box" bindtap="takeTopPhoto" bindlongpress="chooseFromAlbum" data-type="top">
       <image wx:if="{{topPhoto}}" src="{{topPhoto}}" class="photo-preview" mode="aspectFill" />
       <view wx:else class="photo-placeholder">
-        <van-icon name="photograph" size="44rpx" color="#cbd5e1" />
-        <text class="photo-text">点击拍照</text>
-        <view class="hint-divider"></view>
-        <van-icon name="photo-o" size="32rpx" color="#cbd5e1" />
-        <text class="photo-hint">长按从相册选图</text>
+        <van-icon name="photograph" size="40rpx" color="#cbd5e1" />
+        <text class="photo-text">拍照或长按从相册选图</text>
       </view>
     </view>
 
@@ -89,11 +86,8 @@
     <view class="photo-box" bindtap="takeRightSidePhoto" bindlongpress="chooseFromAlbum" data-type="right">
       <image wx:if="{{rightSidePhoto}}" src="{{rightSidePhoto}}" class="photo-preview" mode="aspectFill" />
       <view wx:else class="photo-placeholder">
-        <van-icon name="photograph" size="44rpx" color="#cbd5e1" />
-        <text class="photo-text">点击拍照</text>
-        <view class="hint-divider"></view>
-        <van-icon name="photo-o" size="32rpx" color="#cbd5e1" />
-        <text class="photo-hint">长按从相册选图</text>
+        <van-icon name="photograph" size="40rpx" color="#cbd5e1" />
+        <text class="photo-text">拍照或长按从相册选图</text>
       </view>
     </view>
 
