@@ -6,7 +6,7 @@ Page({
     topAnnotatedImg: '', scaleNote: '',
     topCI: '', topCVAI: '', topCVA: '',
     topLength: '', topWidth: '', topCirc: '',
-    topDesc: '',
+    topConfidence: 0, topDesc: '',
     topCompareImg: '', topSimilarity: 0,
     hasReference: false,
 
@@ -80,6 +80,7 @@ Page({
       topWidth: (m.head_width_mm || 0).toFixed(1),
       topCirc: (m.head_circumference_mm || 0).toFixed(1),
       topDesc,
+      topConfidence: Math.round((m.confidence || 0) * 100),
       topCompareImg: (top.standard_compare && top.standard_compare.image) || '',
       topSimilarity: (top.standard_compare && top.standard_compare.similarity_score) || 0,
 

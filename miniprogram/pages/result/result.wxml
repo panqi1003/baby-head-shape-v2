@@ -42,6 +42,12 @@
       <text>{{scaleNote}}</text>
     </view>
 
+    <!-- 置信度 -->
+    <view wx:if="{{topConfidence > 0}}" class="scale-info" style="margin-top:8rpx">
+      <van-icon name="star-o" size="28rpx" color="#22c55e" />
+      <text>数据可信度 {{topConfidence}}%</text>
+    </view>
+
     <!-- 标准头型对比 -->
     <view wx:if="{{topCompareImg}}" class="compare-section">
       <view class="compare-head">

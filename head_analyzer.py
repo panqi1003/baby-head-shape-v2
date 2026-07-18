@@ -647,15 +647,7 @@ def detect_coin(image: np.ndarray, skin_mask: np.ndarray) -> Optional[Tuple]:
         minRadius=HOUGH_CIRCLE_MIN_RADIUS, maxRadius=HOUGH_CIRCLE_MAX_RADIUS,
     )
     if circles is None or len(circles) == 0:
-        # 降级: 不加 mask 重试
-        circles = cv2.HoughCircles(
-            gray, cv2.HOUGH_GRADIENT,
-            dp=HOUGH_CIRCLE_DP, minDist=HOUGH_CIRCLE_MIN_DIST,
-            param1=HOUGH_CIRCLE_PARAM1, param2=HOUGH_CIRCLE_PARAM2,
-            minRadius=HOUGH_CIRCLE_MIN_RADIUS, maxRadius=HOUGH_CIRCLE_MAX_RADIUS,
-        )
-        if circles is None or len(circles) == 0:
-            return None
+        return None  # 非皮肤区域无圆=无硬币, 不降级全图搜(防头/背景误检)
 
     circles = np.uint16(np.around(circles))
     # 排除与肤色区域重叠 >30% 的圆 (避免头部误检)
@@ -933,8 +925,6 @@ def analyze_head_shape(
 
     if use_reference and auto_detect_reference:
         coin_info = detect_coin(image, skin_mask)
-        if coin_info is None:
-            coin_info = detect_coin_by_circularity(image, skin_mask)
 
     if coin_info is not None:
         _, coin_r = coin_info

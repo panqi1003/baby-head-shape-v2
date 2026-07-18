@@ -138,7 +138,7 @@ async def analyze(
     top_analysis = _top_analysis_text(top_data)
 
     # 比例尺来源
-    has_ref = any("参照物" in s for s in result.processing_steps)
+    has_ref = any("检测到参照物" in s for s in result.processing_steps)
     has_guide = any("引导框" in s for s in result.processing_steps)
     if has_ref:
         scale_note = "参照物校准 · 精度较高"
