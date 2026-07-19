@@ -156,9 +156,15 @@
     </view>
   </view>
 
+  <!-- 报告导出 Canvas (隐藏) -->
+  <canvas type="2d" id="reportCanvas" class="report-canvas"></canvas>
+
   <!-- 底部 -->
   <view class="bottom-bar">
-    <van-button type="primary" block round bind:click="goBack" icon="replay">重新拍照</van-button>
+    <view class="bottom-btn-row">
+      <van-button type="default" round bind:click="exportReport" icon="down" class="btn-export">保存报告</van-button>
+      <van-button type="primary" round bind:click="goBack" icon="replay" class="btn-retake">重新拍照</van-button>
+    </view>
     <text class="disclaimer">本工具仅供家庭参考，不构成医疗建议</text>
   </view>
 </view>

@@ -75,12 +75,23 @@
 /* 下一步 */
 .next-box { margin-top: 20rpx; }
 
+/* 报告导出 Canvas (隐藏) */
+.report-canvas {
+  position: fixed; left: -9999rpx; top: 0;
+  width: 750rpx; height: 1200rpx;
+}
+
 /* 底部 */
 .bottom-bar {
   position: fixed; bottom: 0; left: 0; right: 0;
   padding: 20rpx 30rpx 50rpx; background: #fff;
   border-top: 1rpx solid #f1f5f9;
 }
+.bottom-btn-row {
+  display: flex; gap: 20rpx;
+}
+.btn-export { flex: 1; }
+.btn-retake { flex: 1; }
 .disclaimer {
   text-align: center; font-size: 22rpx; color: #cbd5e1;
   display: block; margin-top: 16rpx;

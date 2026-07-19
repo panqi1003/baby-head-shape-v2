@@ -175,6 +175,7 @@ Page({
           if (data.success) {
             that._topResult = data
             wx.setStorageSync('_topResult', data)
+            wx.setStorageSync('_ageMonths', that.data.ageMonths)
             // 有侧面图 → 阶段2, 否则直接综合
             if (that.data.rightSidePhoto) {
               that.step2SideAnalysis()
