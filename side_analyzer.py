@@ -35,57 +35,76 @@ def analyze_side_profile(image: np.ndarray) -> Optional[Dict]:
     if len(head_contour) < 30:
         return None
 
-    # PCA 找前后轴
+    # v5 极值点法找后脑勺
     pts = head_contour.reshape(-1, 2).astype(np.float64)
-    mean = np.mean(pts, axis=0)
-    centered = pts - mean
-    cov = np.cov(centered.T)
-    eigenvalues, eigenvectors = np.linalg.eigh(cov)
-    idx = np.argsort(eigenvalues)[::-1]
-    v1 = eigenvectors[:, idx[0]]   # 前后方向 (头长)
-    v2 = eigenvectors[:, idx[1]]   # 上下方向
+    n = len(pts)
+    xs, ys = pts[:, 0], pts[:, 1]
+    y_min, y_max = ys.min(), ys.max()
 
-    cx, cy = mean[0], mean[1]
+    # 中间带: y 20%-75%, 排除头顶头发和脖子
+    y_lo = y_min + (y_max - y_min) * 0.20
+    y_hi = y_min + (y_max - y_min) * 0.75
+    mid_mask = (ys >= y_lo) & (ys <= y_hi)
+    if np.sum(mid_mask) < 30:
+        mid_mask = np.ones(n, dtype=bool)
 
-    # 将点分为前(面部)半和后(枕)半
-    proj = np.dot(centered, v1)
-    back_mask = proj < 0   # 后枕部
-    front_mask = proj >= 0
+    mid_pts = pts[mid_mask]
+    mid_idx = np.where(mid_mask)[0]
+    leftmost_local = np.argmin(mid_pts[:, 0])
+    leftmost_global = mid_idx[leftmost_local]
 
-    back_pts = centered[back_mask]
-    if len(back_pts) < 15:
+    # 局部平滑
+    w_smooth = 30
+    lo = max(0, leftmost_global - w_smooth)
+    hi = min(n, leftmost_global + w_smooth + 1)
+    back_pt = np.mean(pts[lo:hi], axis=0)
+
+    # 质心 + 后脑方向
+    cx, cy = np.mean(pts[:, 0]), np.mean(pts[:, 1])
+    back_v = back_pt - np.array([cx, cy])
+    back_dir_angle = math.atan2(back_v[1], back_v[0])
+
+    # ±70°取后脑勺弧段 (用原始轮廓角度)
+    all_angles = np.arctan2(pts[:, 1] - cy, pts[:, 0] - cx)
+    ad = np.abs(all_angles - back_dir_angle)
+    ad = np.minimum(ad, 2 * np.pi - ad)
+    back_mask = ad < np.radians(70)
+    back_idx_all = np.where(back_mask)[0]
+
+    if len(back_idx_all) < 15:
         return None
 
-    # 计算后枕部点到中心的距离
-    back_dists = np.linalg.norm(back_pts, axis=1)
+    # 取最大连续段
+    gaps_arr = np.diff(back_idx_all)
+    big = np.where(gaps_arr > 10)[0]
+    if len(big) > 0:
+        segs, cs = [], 0
+        for i in range(1, len(back_idx_all)):
+            if back_idx_all[i] - back_idx_all[i-1] > 10:
+                segs.append((cs, i - 1)); cs = i
+        segs.append((cs, len(back_idx_all) - 1))
+        segs.sort(key=lambda x: -(x[1] - x[0]))
+        s, e = segs[0]
+        back_idx_all = back_idx_all[s:e + 1]
 
-    # 用前部点估算头部"理想半径" (前部通常比较圆)
-    front_pts = centered[front_mask]
-    if len(front_pts) > 15:
-        front_dists = np.linalg.norm(front_pts, axis=1)
-        expected_radius = np.median(front_dists)
-    else:
-        expected_radius = np.median(back_dists)
+    back_pts = pts[back_idx_all]
+    back_centered = back_pts - np.array([cx, cy])
+    back_dists = np.linalg.norm(back_centered, axis=1)
+
+    # 期望半径 = 后脑勺弧段到质心中的中位距离
+    expected_radius = np.median(back_dists)
 
     if expected_radius < 10:
         return None
 
-    # 后枕扁平度: 后枕部实际距离 vs 理想半径
-    # 取后枕部最远 P5 距离 (排除异常点)
-    back_p95 = np.percentile(back_dists, 95)
     back_median = np.median(back_dists)
 
-    # 扁平评分: 0=与理想圆弧一致(圆润), 1=极度扁平
+    # 扁平度 (公式不变)
     flatness_raw = max(0, 1.0 - back_median / (expected_radius + 1e-6))
-
-    # 曲率变异: 后枕部距离的标准差/均值 → 越大越不规则
     curvature_cv = np.std(back_dists) / (np.mean(back_dists) + 1e-6)
-
-    # 综合扁平度 (0-1)
     flatness_score = flatness_raw * 0.7 + min(curvature_cv * 1.5, 0.3)
     flatness_score = round(min(1.0, flatness_score), 3)
 
-    # 分类
     if flatness_score < 0.15:
         category = "正常圆润"
     elif flatness_score < 0.30:
@@ -95,18 +114,17 @@ def analyze_side_profile(image: np.ndarray) -> Optional[Dict]:
     else:
         category = "明显扁平"
 
-    head_length_px = float(proj.max() - proj.min())
-    head_height_px = float(np.dot(centered, v2).max() - np.dot(centered, v2).min())
+    head_length_px = float(np.max(pts[:, 0]) - np.min(pts[:, 0]))
+    head_height_px = float(np.max(pts[:, 1]) - np.min(pts[:, 1]))
 
-    # 序列化 contour 为列表 (numpy array 不能直接 JSON 序列化)
     contour_list = head_contour.reshape(-1, 2).tolist() if head_contour is not None else None
 
-    # 后枕部角度范围 (用于画标准圆弧)
-    back_pts_arr = centered[back_mask]
-    back_angles = np.arctan2(back_pts_arr[:, 1], back_pts_arr[:, 0])
-    back_angle_start = float(np.rad2deg(back_angles.min()))
-    back_angle_end = float(np.rad2deg(back_angles.max()))
+    # 后枕部角度范围
+    back_angles_arr = np.arctan2(back_centered[:, 1], back_centered[:, 0])
+    back_angle_start = float(np.degrees(back_angles_arr.min()))
+    back_angle_end = float(np.degrees(back_angles_arr.max()))
 
+    # v1 改为后脑方向 (保持 _pca_v1 字段名兼容)
     result_dict = {
         "posterior_flatness": flatness_score,
         "head_length_px": round(head_length_px, 1),
@@ -118,9 +136,8 @@ def analyze_side_profile(image: np.ndarray) -> Optional[Dict]:
         "scale_method": "默认估算",
         "_head_contour": contour_list,
         "_pca_center": [float(cx), float(cy)],
-        "_pca_v1": [float(v1[0]), float(v1[1])],
+        "_pca_v1": [float(math.cos(back_dir_angle)), float(math.sin(back_dir_angle))],
         "_back_angles": [back_angle_start, back_angle_end],
     }
 
-    # 标准对比由 app.py 统一调用 draw_comparison 一次完成 (避免Snake重复计算)
     return result_dict

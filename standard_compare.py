@@ -231,25 +231,19 @@ def draw_comparison(image, user_contour, view='top', side_result=None, side='lef
                 cx, cy = pca_center
                 v1 = np.array(pca_v1)
 
-                # 面朝方向: PCA投影两组x均值比较
-                centered = pts - np.array([cx, cy])
-                proj = np.dot(centered, v1)
-                pos_mask = proj >= 0
-                neg_mask = proj < 0
-                mx_pos = np.mean(pts[pos_mask, 0]) if np.any(pos_mask) else 0
-                mx_neg = np.mean(pts[neg_mask, 0]) if np.any(neg_mask) else 0
-                bd = -v1 if mx_pos > mx_neg else v1
-                ba = np.degrees(np.arctan2(bd[1], bd[0]))
+                # v5: 后脑方向直接用 _pca_v1 (现在是 back_direction)
+                ba = np.degrees(np.arctan2(v1[1], v1[0]))
 
-                # 初始半径 = 前部中位半径 × 0.94
-                r = expected_radius * 0.94
+                # 起始半径 = expected_radius × 1.02 (起点在绿线外侧)
+                r = expected_radius * 1.02
 
-                # 后脑方向 ±70° 初始化Snake
-                a1, a2 = ba - 70, ba + 70
+                # 不对称角度: L50 R80 (后脑勺下半+上半, 不爬到头顶)
+                a1, a2 = ba - 50, ba + 80
                 t = np.linspace(np.radians(a1), np.radians(a2), 60)
                 snake = np.column_stack([cx + r * np.cos(t), cy + r * np.sin(t)])
 
-                # Snake迭代: 40轮, 只向外, 步长0.3, 3次平滑
+                # Snake迭代: 40轮, 只向外, 步长0.3, 最多外移15%, 3次平滑
+                cap = r * 0.15
                 for _ in range(40):
                     ns = snake.copy()
                     for i in range(60):
@@ -258,7 +252,13 @@ def draw_comparison(image, user_contour, view='top', side_result=None, side='lef
                             (pts[:, 0] - snake[i, 0]) ** 2 + (pts[:, 1] - snake[i, 1]) ** 2))
                         dt = np.sqrt((pts[di, 0] - cx) ** 2 + (pts[di, 1] - cy) ** 2)
                         if dt > dc:
-                            ns[i] = snake[i] + 0.3 * (pts[di] - snake[i])
+                            new_pos = snake[i] + 0.3 * (pts[di] - snake[i])
+                            nd = np.sqrt((new_pos[0] - cx) ** 2 + (new_pos[1] - cy) ** 2)
+                            if nd > r + cap:
+                                d = new_pos - np.array([cx, cy])
+                                d /= np.linalg.norm(d)
+                                new_pos = np.array([cx, cy]) + d * (r + cap)
+                            ns[i] = new_pos
                     for _ in range(3):
                         s = ns.copy()
                         for i in range(1, 59):
