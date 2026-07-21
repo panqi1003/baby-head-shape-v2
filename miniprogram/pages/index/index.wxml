@@ -120,7 +120,7 @@
   <!-- 分析按钮 -->
   <view class="bottom-bar">
     <van-button type="primary" block round bind:click="startAnalyze"
-      disabled="{{!topPhoto || analyzing}}" loading="{{analyzing}}" loading-text="分析中...">
+      disabled="{{!topPhoto || analyzing}}" loading="{{analyzing}}" loading-text="{{stepText || '分析中...'}}">
       开始分析
     </van-button>
     <text class="disclaimer">照片仅用于头型分析，分析完成即删除，服务器不留存\n本工具仅供家庭参考，不构成医疗建议</text>
