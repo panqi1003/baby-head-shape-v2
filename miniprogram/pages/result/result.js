@@ -49,18 +49,11 @@ Page({
     const side = data.sideRight
     const hasSide = !!(side && side.analysis)
 
-    // CI/CVAI 状态
-    const ci = parseFloat(m.ci) || 0
-    let ciStatus = '', ciColor = ''
-    if (ci >= 75 && ci <= 85) { ciStatus = '在正常范围'; ciColor = '#16a34a' }
-    else if (ci > 85) { ciStatus = '偏扁头倾向'; ciColor = '#d97706' }
-    else { ciStatus = '偏长头倾向'; ciColor = '#d97706' }
-
-    const cvai = parseFloat(m.cvai) || 0
-    let cvaiStatus = '', cvaiColor = ''
-    if (cvai < 3.5) { cvaiStatus = '对称性良好'; cvaiColor = '#16a34a' }
-    else if (cvai < 6.25) { cvaiStatus = '轻微不对称'; cvaiColor = '#d97706' }
-    else { cvaiStatus = '不对称较明显'; cvaiColor = '#ef4444' }
+    // CI/CVAI 状态 (直接从后端读取，前端不重复阈值逻辑)
+    const ciStatus = top.ci_status || ''
+    const ciColor = top.ci_color || '#16a34a'
+    const cvaiStatus = top.cvai_status || ''
+    const cvaiColor = top.cvai_color || '#16a34a' 
 
     const ai = data.ai || {}
     const fb = data.fb || {}

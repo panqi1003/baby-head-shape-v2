@@ -143,7 +143,7 @@ Page({
       wx.showToast({ title: '月龄请填 0-36 的数字', icon: 'none' })
       return
     }
-    that.setData({ analyzing: true })
+    that.setData({ analyzing: true, stepText: '正在分析俯视图...' })
     that.step1TopAnalysis()
   },
 
@@ -178,8 +178,10 @@ Page({
             wx.setStorageSync('_ageMonths', that.data.ageMonths)
             // 有侧面图 → 阶段2, 否则直接综合
             if (that.data.rightSidePhoto) {
+              that.setData({ stepText: '正在分析侧面图...' })
               that.step2SideAnalysis()
             } else {
+              that.step3CombinedAnalysis()
             }
           } else {
             that.setData({ analyzing: false })
@@ -205,8 +207,9 @@ Page({
     const timer = setTimeout(() => {
       if (!done) {
         done = true
-        that.setData({ analyzing: false, rightSidePhoto: '' })
-        wx.showToast({ title: '侧面图分析超时，请重试', icon: 'none', duration: 3000 })
+        that.setData({ rightSidePhoto: '' })
+        wx.showToast({ title: '侧面分析超时，已跳过', icon: 'none', duration: 2000 })
+        that.step3CombinedAnalysis()
       }
     }, 15000)
 
@@ -224,8 +227,9 @@ Page({
             wx.setStorageSync('_sideResult', data)
             that.step3CombinedAnalysis()
           } else {
-            that.setData({ analyzing: false, rightSidePhoto: '' })
-            wx.showToast({ title: '侧面照片未能识别头部，请靠近拍摄让头部填满画面后重试', icon: 'none', duration: 4000 })
+            // 侧面失败 → 降级继续综合
+            wx.showToast({ title: '侧面未识别，已跳过侧面分析', icon: 'none', duration: 2000 })
+            that.step3CombinedAnalysis()
           }
         } catch (e) {
           that.setData({ analyzing: false })
@@ -234,8 +238,9 @@ Page({
       },
       fail() {
         if (done) return; done = true; clearTimeout(timer)
-        that.setData({ analyzing: false, rightSidePhoto: '' })
-        wx.showToast({ title: '侧面分析网络失败，请检查网络后重试', icon: 'none', duration: 3000 })
+        that.setData({ rightSidePhoto: '' })
+        wx.showToast({ title: '侧面网络失败，已跳过', icon: 'none', duration: 2000 })
+        that.step3CombinedAnalysis()
       }
     })
   },
@@ -248,6 +253,7 @@ Page({
       sideRight: that._sideResult || null,
     }
 
+    that.setData({ stepText: 'AI 综合分析中...' })
     if (that.data.useAI) {
       wx.request({
         url: app.globalData.apiBase + '/ai_analysis',
@@ -272,6 +278,7 @@ Page({
         fail() { that.finish(allData) }
       })
     } else {
+      that.setData({ stepText: '分析完成' })
       that.finish(allData)
     }
   },

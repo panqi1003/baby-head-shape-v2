@@ -197,6 +197,23 @@ async def analyze(
         "head_circumference_mm": m.head_circumference_mm, "ci": m.ci, "cvai": m.cvai,
         "cva_mm": m.cva_mm, "severity": m.severity.value, "confidence": m.confidence}
     top_analysis = _top_analysis_text(top_data)
+    # CI/CVAI 状态 (供前端直接使用)
+    ci = m.ci
+    if 75 <= ci <= 85:
+        ci_status, ci_color = "在正常范围", "#16a34a"
+    elif ci > 85:
+        ci_status, ci_color = "偏扁头倾向", "#d97706"
+    else:
+        ci_status, ci_color = "偏长头倾向", "#d97706"
+
+    cvai = m.cvai
+    if cvai < 3.5:
+        cvai_status, cvai_color = "对称性良好", "#16a34a"
+    elif cvai < 6.25:
+        cvai_status, cvai_color = "轻微不对称", "#d97706"
+    else:
+        cvai_status, cvai_color = "不对称较明显", "#ef4444"
+
     has_ref = any("检测到参照物" in s for s in result.processing_steps)
     has_guide = any("引导框" in s for s in result.processing_steps)
     if has_ref:
@@ -210,6 +227,8 @@ async def analyze(
         "measurements": top_data, "analysis": top_analysis,
         "annotated_image": f"data:image/jpeg;base64,{img_b64}",
         "has_reference": has_ref, "scale_note": scale_note,
+        "ci_status": ci_status, "ci_color": ci_color,
+        "cvai_status": cvai_status, "cvai_color": cvai_color,
         "standard_compare": getattr(result, 'standard_compare', None),
     }
 
