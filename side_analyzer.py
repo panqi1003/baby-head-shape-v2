@@ -53,8 +53,8 @@ def analyze_side_profile(image: np.ndarray) -> Optional[Dict]:
     leftmost_local = np.argmin(mid_pts[:, 0])
     leftmost_global = mid_idx[leftmost_local]
 
-    # 局部平滑
-    w_smooth = 30
+    # Local smoothing - dynamic window based on total contour size
+    w_smooth = max(5, n // 8)
     lo = max(0, leftmost_global - w_smooth)
     hi = min(n, leftmost_global + w_smooth + 1)
     back_pt = np.mean(pts[lo:hi], axis=0)
@@ -78,10 +78,12 @@ def analyze_side_profile(image: np.ndarray) -> Optional[Dict]:
     gaps_arr = np.diff(back_idx_all)
     big = np.where(gaps_arr > 10)[0]
     if len(big) > 0:
-        segs, cs = [], 0
-        for i in range(1, len(back_idx_all)):
-            if back_idx_all[i] - back_idx_all[i-1] > 10:
-                segs.append((cs, i - 1)); cs = i
+        # 利用 big 数组直接计算段边界，避免遗漏首元素
+        segs = []
+        cs = 0
+        for gap_idx in big:
+            segs.append((cs, gap_idx))
+            cs = gap_idx + 1
         segs.append((cs, len(back_idx_all) - 1))
         segs.sort(key=lambda x: -(x[1] - x[0]))
         s, e = segs[0]

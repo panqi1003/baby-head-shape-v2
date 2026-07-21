@@ -1,14 +1,15 @@
 """
-DeepSeek V4 Flash 智能分析 — 将测量数据转为个性化指导
+DeepSeek AI Analysis - structured prompt + retry + fallback
 """
 
 import json
 import os
+import time
 import requests
 from pathlib import Path
 from typing import Optional, Dict
 
-# 尝试从 .env 文件加载
+# Load .env
 try:
     from dotenv import load_dotenv
     load_dotenv(Path(__file__).parent / ".env")
@@ -17,7 +18,8 @@ except ImportError:
 
 DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY", "")
 DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1"
-MODEL = "deepseek-chat"  # DeepSeek V4 Flash
+MODEL = "deepseek-chat"
+MAX_RETRIES = 2
 
 
 def _build_prompt(
@@ -25,17 +27,16 @@ def _build_prompt(
     side_measurements: Optional[Dict] = None,
     age_months: Optional[int] = None,
 ) -> str:
-    """构建发送给 DeepSeek 的结构化 prompt"""
-
+    """构建发送给 DeepSeek 的中文结构化 prompt"""
     m = top_measurements
 
-    prompt = f"""你是一位有经验的育儿顾问。请根据以下婴儿头型测量数据，给出温暖、实用、不制造焦虑的分析和建议。
+    prompt = f"""你是一位有经验的育儿顾问。请根据以下婴儿头型测量数据，用中文给出温暖、实用、不制造焦虑的分析和建议。
 
 重要原则:
 - 语气像朋友聊天，不要用医学诊断口吻
 - 强调大多数情况通过日常调整都能改善
 - 不确定的事情建议咨询医生，但不要吓唬家长
-- 不要使用"危险信号""红旗征象""需警惕"等制造焦虑的表述
+- 不要使用"危险信号""红旗征象""需警惕"等制造焦虑的说法
 
 ## 测量数据
 
@@ -56,7 +57,6 @@ def _build_prompt(
 - 后枕部扁平度: {side_measurements.get('posterior_flatness', 'N/A')} (0=圆润, 1=偏平)
 - 分类: {side_measurements.get('flatness_category', 'N/A')}
 """
-        # Snake 对比间隙数据
         gap_keys = ['gap_max', 'gap_avg', 'gap_top', 'gap_mid', 'gap_bot']
         if any(k in side_measurements for k in gap_keys):
             prompt += f"""- 后枕弧度对比间隙 (白弧与实测绿线的差异, 单位像素):
@@ -80,16 +80,16 @@ def _build_prompt(
 """
 
     prompt += """
-## 请按以下格式回复 (JSON):
+## 请按以下 JSON 格式回复 (用中文):
 
 ```json
 {
   "head_shape_type": "头型大致对称 / 略微偏头 / 略微扁头 / 偏头较明显 / 扁头较明显",
   "summary": "用一两句话通俗描述宝宝头型现在的情况，语气温暖",
-  "daily_tips": ["日常可以这样做1", "日常可以这样做2", ...],
+  "daily_tips": ["日常可以这样做1", "日常可以这样做2", "..."],
   "tummy_time_advice": "俯趴练习的具体建议 (频率、时长)",
   "next_step": "建议 4 周后再次拍照对比 / 建议找儿科医生看看 / 建议继续保持",
-  "explanation": "用150-200字通俗解释宝宝头型现状、可能原因、接下来怎么做。语气像朋友聊天，温暖专业。强调婴幼儿头骨可塑性强，多数通过日常调整能改善。不确定的事情建议咨询医生但不要说得很严重。"
+  "explanation": "用150-200字通俗解释宝宝头型现状、可能原因、接下来怎么做。语气像朋友聊天，温暖专业。不确定的事情建议咨询医生但不要说得很严重。"
 }
 ```
 
@@ -103,88 +103,85 @@ def analyze_with_deepseek(
     side_measurements: Optional[Dict] = None,
     age_months: Optional[int] = None,
     api_key: Optional[str] = None,
-) -> Dict:
+) -> Optional[Dict]:
     """
-    调用 DeepSeek V4 Flash 进行智能分析。
-
-    参数:
-      top_measurements: 俯视图测量数据
-      side_measurements: 侧面图测量数据 (可选)
-      age_months: 宝宝月龄 (可选)
-      api_key: DeepSeek API Key (可选, 默认用环境变量)
-
-    返回:
-      DeepSeek 分析结果 dict, 或 {"error": ...}
+    Call DeepSeek API with retry logic.
+    Returns parsed JSON dict on success, None on failure.
     """
     key = api_key or DEEPSEEK_API_KEY
     if not key:
-        return {
-            "error": "未配置 DEEPSEEK_API_KEY。请设置环境变量或在调用时传入。",
-            "fallback": True,
-        }
+        return None
 
     prompt = _build_prompt(top_measurements, side_measurements, age_months)
 
+    last_error = None
+    for attempt in range(MAX_RETRIES + 1):
+        try:
+            resp = requests.post(
+                f"{DEEPSEEK_BASE_URL}/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": MODEL,
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": "你是一位有经验的育儿顾问，请用 JSON 格式回复。语气像朋友聊天，温暖实用，不制造焦虑，不确定的事建议咨询医生但不要说得很严重。",
+                        },
+                        {"role": "user", "content": prompt},
+                    ],
+                    "temperature": 0.3,
+                    "max_tokens": 2000,
+                },
+                timeout=30,
+            )
+            break  # success, exit retry loop
+        except requests.exceptions.Timeout:
+            last_error = "timeout"
+            if attempt < MAX_RETRIES:
+                time.sleep((attempt + 1) * 1.5)
+                continue
+            return None
+        except requests.exceptions.ConnectionError:
+            last_error = "connection"
+            if attempt < MAX_RETRIES:
+                time.sleep((attempt + 1) * 2)
+                continue
+            return None
+    else:
+        return None  # all retries exhausted
+
+    if resp.status_code != 200:
+        return None
+
     try:
-        resp = requests.post(
-            f"{DEEPSEEK_BASE_URL}/chat/completions",
-            headers={
-                "Authorization": f"Bearer {key}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": MODEL,
-                "messages": [
-                    {"role": "system", "content": "你是一位有经验的育儿顾问，请用 JSON 格式回复。语气像朋友聊天，温暖实用，不制造焦虑，不确定的事建议咨询医生但不要说得很严重。"},
-                    {"role": "user", "content": prompt},
-                ],
-                "temperature": 0.3,
-                "max_tokens": 2000,
-            },
-            timeout=30,
-        )
-
-        if resp.status_code != 200:
-            return {
-                "error": f"DeepSeek API 返回错误: {resp.status_code}",
-                "detail": resp.text[:500],
-                "fallback": True,
-            }
-
         data = resp.json()
-        content = data["choices"][0]["message"]["content"]
+        raw_content = data["choices"][0]["message"]["content"]
 
-        # 提取 JSON (可能被 markdown code block 包裹)
-        if "```json" in content:
-            content = content.split("```json")[1].split("```")[0]
-        elif "```" in content:
-            content = content.split("```")[1].split("```")[0]
+        # Extract JSON from possible markdown code block
+        if "```json" in raw_content:
+            raw_content = raw_content.split("```json")[1].split("```")[0]
+        elif "```" in raw_content:
+            raw_content = raw_content.split("```")[1].split("```")[0]
 
-        result = json.loads(content.strip())
+        result = json.loads(raw_content.strip())
         return result
-
-    except requests.exceptions.Timeout:
-        return {"error": "DeepSeek API 超时", "fallback": True}
-    except json.JSONDecodeError:
-        return {
-            "error": "DeepSeek 返回格式异常",
-            "raw": content[:500] if 'content' in dir() else "",
-            "fallback": True,
-        }
-    except Exception as e:
-        return {"error": str(e), "fallback": True}
+    except (json.JSONDecodeError, KeyError, IndexError):
+        return None
 
 
 def generate_fallback_advice(m: Dict, side: Optional[Dict] = None) -> Dict:
     """
-    当 DeepSeek 不可用时的本地回退建议 (升级版)。
-    基于 CI/CVAI + 月龄的规则引擎。
+    当 DeepSeek 不可用时的本地回退建议 (规则引擎)。
+    基于 CI/CVAI + 侧面扁平度。
     """
     ci = m.get("ci", 80)
     cvai = m.get("cvai", 2)
     severity = m.get("severity", "正常")
 
-    # 分型 (温和表述)
+    # 头型分型 (温和表述)
     if cvai > 6.25:
         head_type = "偏头较明显"
     elif ci > 90:
@@ -198,7 +195,6 @@ def generate_fallback_advice(m: Dict, side: Optional[Dict] = None) -> Dict:
     else:
         head_type = "头型大致对称"
 
-    # 后枕扁平度
     flatness = "未知"
     if side:
         flatness = side.get("flatness_category", "未知")
@@ -218,5 +214,12 @@ def generate_fallback_advice(m: Dict, side: Optional[Dict] = None) -> Dict:
             "建议找儿科医生看看" if severity in ("中度", "重度")
             else "建议 4 周后再次拍照对比，观察变化趋势"
         ),
-        "explanation": f"亲爱的家长，宝宝头型看起来{head_type}。这在婴儿中非常常见，通常是因为宝宝长时间保持同一睡姿造成的，不是什么大问题。好消息是，婴幼儿头骨很软、可塑性很强，通过增加俯趴时间、多变换睡姿和抱姿等简单的日常调整，大多数宝宝的头型都能逐步改善。建议坚持 2-4 周后再次拍照对比。日常多观察宝宝的转头是否灵活对称。如果有不确定的地方，带宝宝体检时可以顺便问问儿科医生。",
+        "explanation": (
+            f"亲爱的家长，宝宝头型看起来{head_type}。这在婴儿中非常常见，"
+            f"通常是因为宝宝长时间保持同一睡姿造成的，不是什么大问题。"
+            f"好消息是，婴幼儿头骨很软、可塑性很强，通过增加俯趴时间、"
+            f"多变换睡姿和抱姿等简单的日常调整，大多数宝宝的头型都能逐步改善。"
+            f"建议坚持 2-4 周后再次拍照对比。日常多观察宝宝的转头是否灵活对称。"
+            f"如果有不确定的地方，带宝宝体检时可以顺便问问儿科医生。"
+        ),
     }

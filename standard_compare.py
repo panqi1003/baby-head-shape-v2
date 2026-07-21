@@ -13,31 +13,35 @@ import numpy as np
 # PART 1: 加载标准头型轮廓
 # ============================================================
 
-_STD_ELLIPSE = {}  # 俯视拟合椭圆缓存
+import threading
+_STD_ELLIPSE = {}  # contour/ellipse cache
+_STD_CACHE_LOCK = threading.Lock()
 
 def _load_std_contour(view, side='left'):
-    """加载标准头型轮廓。俯视返回拟合椭圆参数, 侧面返回原始轮廓(左/右)。"""
+    """Load standard contour. Thread-safe with DCL caching."""
     import os
     cache_key = f"{view}_{side}"
     if cache_key not in _STD_ELLIPSE:
-        std_dir = os.path.join(os.path.dirname(__file__), '标准头型')
-        if view == 'top':
-            path = os.path.join(std_dir, 'std_top.npy')
-            if os.path.exists(path):
-                raw = np.load(path, allow_pickle=True)
-                pts = raw.reshape(-1, 2).astype(np.float32)
-                if len(pts) >= 5:
-                    ellipse = cv2.fitEllipse(pts)
-                    _STD_ELLIPSE[cache_key] = ellipse
+        with _STD_CACHE_LOCK:
+            if cache_key not in _STD_ELLIPSE:
+                std_dir = os.path.join(os.path.dirname(__file__), '标准头型')
+                if view == 'top':
+                    path = os.path.join(std_dir, 'std_top.npy')
+                    if os.path.exists(path):
+                        raw = np.load(path, allow_pickle=True)
+                        pts = raw.reshape(-1, 2).astype(np.float32)
+                        if len(pts) >= 5:
+                            ellipse = cv2.fitEllipse(pts)
+                            _STD_ELLIPSE[cache_key] = ellipse
+                        else:
+                            _STD_ELLIPSE[cache_key] = None
                 else:
-                    _STD_ELLIPSE[cache_key] = None
-        else:
-            # 侧面: 加载合成标准轮廓 (std_cache优先)
-            fname = f'std_side_{side}.npy'
-            path = os.path.join(os.path.dirname(__file__), 'std_cache', fname)
-            if not os.path.exists(path):
-                path = os.path.join(std_dir, fname)
-            _STD_ELLIPSE[cache_key] = np.load(path, allow_pickle=True) if os.path.exists(path) else None
+                    # side: 加载合成标准轮廓 (std_cache优先)
+                    fname = f'std_side_{side}.npy'
+                    path = os.path.join(os.path.dirname(__file__), 'std_cache', fname)
+                    if not os.path.exists(path):
+                        path = os.path.join(std_dir, fname)
+                    _STD_ELLIPSE[cache_key] = np.load(path, allow_pickle=True) if os.path.exists(path) else None
     return _STD_ELLIPSE.get(cache_key)
 
 
@@ -109,7 +113,8 @@ def _align_and_scale_contour(std_data, user_contour, h, w):
         aligned[:, 0] = (aligned[:, 0] - scx) * scale + ucx
         aligned[:, 1] = (aligned[:, 1] - scy) * scale + ucy
         return aligned.astype(np.int32).reshape(-1, 1, 2)
-# 各月龄参考理想CI值 (WHO/流行病学文献综合)
+
+# ideal CI values by age (WHO/流行病学文献综合)
 _IDEAL_CI_BY_AGE = {
     0: 80, 1: 81, 2: 82, 3: 82, 4: 83, 5: 83, 6: 82,
     7: 82, 8: 81, 9: 81, 10: 80, 11: 80, 12: 79,

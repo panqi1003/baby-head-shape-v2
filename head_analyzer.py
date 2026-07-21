@@ -14,8 +14,14 @@
 import cv2
 import numpy as np
 import math
+import bisect
+import base64
+import logging
 from dataclasses import dataclass, field
-from typing import Optional, Tuple, List
+
+# SAM 检测 (提前导入，避免函数体内延迟 import)
+from sam_detector import detect_head as detect_head_sam, create_guide_mask
+from typing import Optional, Tuple, List, Dict
 from enum import Enum
 
 # ============================================================
@@ -49,6 +55,7 @@ class AnalysisResult:
     measurements: Optional[HeadMeasurements] = None
     annotated_image: Optional[np.ndarray] = None
     error_message: str = ""
+    standard_compare: Optional[Dict] = None
     processing_steps: List[str] = field(default_factory=list)
 
 
@@ -234,6 +241,15 @@ def clean_mask(mask: np.ndarray) -> np.ndarray:
 MIN_HEAD_AREA_RATIO = 0.03   # 头部至少占画面 3%
 MAX_HEAD_AREA_RATIO = 0.60   # 头部最多占画面 60%
 
+# _score_contour 评分权重
+CONTOUR_MIN_AREA = 50         # 最小轮廓面积(px)
+CONTOUR_ELLIPSE_MIN_POINTS = 10  # 椭圆拟合最小点数
+CONTOUR_AREA_PENALTY_FACTOR = 3  # 面积超限惩罚系数
+CONTOUR_ELLIPSE_FALLBACK = 0.3  # 椭圆拟合失败回退分
+CONTOUR_WEIGHT_AREA = 0.2     # 面积权重
+CONTOUR_WEIGHT_CENTER = 0.3   # 中心位置权重
+CONTOUR_WEIGHT_ELLIPSE = 0.5  # 椭圆度权重
+
 # 婴儿平均头部尺寸参考 (用于无参照物模式)
 # 新生儿头宽约 85-95mm, 3-12月约 90-105mm
 AVG_INFANT_HEAD_WIDTH_MM = 95.0  # 默认值 (3-6月龄平均)
@@ -254,12 +270,11 @@ def estimate_head_width_by_age(age_months: Optional[int]) -> float:
                    15: 47.5, 18: 48, 21: 48.5, 24: 49}
 
     m = min(age_months, 24)
-    # 找最接近的月龄
+    # bisect 二分查找最接近的月龄 (O(log n))
     keys = sorted(age_to_circ.keys())
-    for i, k in enumerate(keys):
-        if k >= m:
-            circ = age_to_circ[k]
-            break
+    idx = bisect.bisect_left(keys, m)
+    if idx < len(keys):
+        circ = age_to_circ[keys[idx]]
     else:
         circ = age_to_circ[keys[-1]]
 
@@ -273,7 +288,7 @@ def _score_contour(contour: np.ndarray, img_center: Tuple[int, int],
     综合: 中心位置 + 椭圆度 + 面积合理性
     """
     area = cv2.contourArea(contour)
-    if area < 50:
+    if area < CONTOUR_MIN_AREA:
         return 0.0
 
     area_ratio = area / img_area
@@ -282,7 +297,7 @@ def _score_contour(contour: np.ndarray, img_center: Tuple[int, int],
     if area_ratio < MIN_HEAD_AREA_RATIO:
         return 0.0
     if area_ratio > MAX_HEAD_AREA_RATIO:
-        area_score = max(0, 1.0 - (area_ratio - MAX_HEAD_AREA_RATIO) * 3)
+        area_score = max(0, 1.0 - (area_ratio - MAX_HEAD_AREA_RATIO) * CONTOUR_AREA_PENALTY_FACTOR)
     else:
         area_score = 1.0
 
@@ -297,7 +312,7 @@ def _score_contour(contour: np.ndarray, img_center: Tuple[int, int],
     center_score = max(0, 1.0 - dist / max_dist)
 
     # 椭圆度 (拟合椭圆的重叠率越高越好)
-    if len(contour) >= 10:
+    if len(contour) >= CONTOUR_ELLIPSE_MIN_POINTS:
         try:
             ellipse = cv2.fitEllipse(contour)
             # 生成椭圆 mask 并计算与轮廓的重叠度
@@ -310,12 +325,12 @@ def _score_contour(contour: np.ndarray, img_center: Tuple[int, int],
             union = np.sum((e_mask > 0) | (cnt_mask > 0))
             ellipse_score = intersection / union if union > 0 else 0
         except Exception:
-            ellipse_score = 0.3
+            ellipse_score = CONTOUR_ELLIPSE_FALLBACK
     else:
         ellipse_score = 0.1
 
     # 综合评分 (椭圆度权重最高, 能有效排除手臂/不规则背景物体)
-    return area_score * 0.2 + center_score * 0.3 + ellipse_score * 0.5
+    return area_score * CONTOUR_WEIGHT_AREA + center_score * CONTOUR_WEIGHT_CENTER + ellipse_score * CONTOUR_WEIGHT_ELLIPSE
 
 
 def extract_head_contour(mask: np.ndarray,
@@ -598,9 +613,24 @@ def measure_head_pca(contour: np.ndarray) -> Optional[dict]:
     else:
         width_px = proj_lr.max() - proj_lr.min()
 
+    # ── P0-1: 方向验证 ────────────────────────────────
+    # 极度扁头时椭圆主轴可能指向头宽方向，AP/LR互换
+    # 若宽度 > 长度，翻转方向并重算
+    if width_px > length_px:
+        ap_dir, lr_dir = lr_dir, -ap_dir
+        proj_ap = np.dot(centered, ap_dir)
+        length_px = proj_ap.max() - proj_ap.min()
+        proj_lr = np.dot(centered, lr_dir)
+        mid_mask = (proj_ap > -length_px * 0.3) & (proj_ap < length_px * 0.3)
+        if np.sum(mid_mask) > 10:
+            width_px = proj_lr[mid_mask].max() - proj_lr[mid_mask].min()
+        else:
+            width_px = proj_lr.max() - proj_lr.min()
+
     # 更新 v1/v2 为正确的方向 (用于后续可视化)
     v1 = ap_dir
     v2 = lr_dir
+    angle_deg = math.degrees(math.atan2(v1[1], v1[0]))
 
     # 4. CVAI: 30° 对角线跨度差异
     diag_angle = math.radians(30)
@@ -776,7 +806,7 @@ def generate_advice(meas: HeadMeasurements) -> dict:
 
 
 # ============================================================
-# 8. 可视化标注
+# 7. 可视化标注
 # ============================================================
 
 def _draw_annotations(image: np.ndarray, contour: np.ndarray,
@@ -826,7 +856,7 @@ def _draw_annotations(image: np.ndarray, contour: np.ndarray,
 
 
 # ============================================================
-# 10. 主分析流程
+# 9. 主分析流程
 # ============================================================
 
 def analyze_head_shape(
@@ -860,7 +890,6 @@ def analyze_head_shape(
         return result
 
     # Step 1: SAM 零样本头部检测 (替代肤色检测 — 不受肤色/光照/背景影响)
-    from sam_detector import detect_head as detect_head_sam, create_guide_mask
     guide_mask = create_guide_mask(h, w) if guide_frame else None
     sam_result = detect_head_sam(image, guide_mask=guide_mask)
     if sam_result is None:
@@ -891,7 +920,6 @@ def analyze_head_shape(
         refined = refine_contour_under_hair(image, head_mask, head_contour, hair_score)
         if refined is not None and len(refined) > 20:
             head_contour = refined
-            # 更新 head_mask
             head_mask = np.zeros((h, w), dtype=np.uint8)
             cv2.drawContours(head_mask, [head_contour], -1, 255, -1)
             steps.append(f"头发补偿 (干扰度:{hair_score:.0%}, 轮廓内收)")
@@ -951,7 +979,7 @@ def analyze_head_shape(
     # Step 6: CI 计算 (基于 PCA 直接测量)
     hl_mm = length_px * scale_mm_per_px
     hw_mm = width_px * scale_mm_per_px
-    # 确保头长 ≥ 头宽，PCA v1 可能指向宽方向(扁头)，强制 swap
+    # P0-1: measure_head_pca 已内置方向验证，此处保留安全网
     if hw_mm > hl_mm:
         hl_mm, hw_mm = hw_mm, hl_mm
     ci = hw_mm / hl_mm * 100
@@ -970,7 +998,8 @@ def analyze_head_shape(
     severity = classify_severity(ci, cvai)
 
     # 置信度估算 (考虑SAM质量+头发干扰+参照物)
-    confidence = 0.60  # SAM分割成功→基础分
+    used_sam = sam_result is not None
+    confidence = 0.60 if used_sam else 0.40  # SAM成功→0.60, 肤色回退→0.40
     # 轮廓点数: >500点质量较好
     contour_len = len(head_contour)
     if contour_len > 500:
@@ -982,11 +1011,13 @@ def analyze_head_shape(
     # 头发干扰: 干扰大扣分
     if hair_score > 0.3:
         confidence -= 0.10
-    # 参照物
+    # 参照物/引导框/年龄估算 精度递减
     if coin_info is not None:
-        confidence += 0.20
+        confidence += 0.20  # 参照物校准: 最高精度
+    elif guide_frame:
+        confidence += 0.10  # 引导框: 中等精度
     else:
-        confidence += 0.10
+        confidence += 0.05  # 纯年龄估算: 较低精度
     confidence = max(0.1, min(1.0, confidence))
 
     measurements = HeadMeasurements(
@@ -1013,13 +1044,13 @@ def analyze_head_shape(
         from standard_compare import draw_comparison
         comp_img, comp_data = draw_comparison(image, head_contour, view='top', age_months=age_months)
         _, comp_buf = cv2.imencode('.jpg', comp_img, [cv2.IMWRITE_JPEG_QUALITY, 85])
-        import base64
         result.standard_compare = {
             "image": f"data:image/jpeg;base64,{base64.b64encode(comp_buf).decode('utf-8')}",
             "similarity_score": comp_data["similarity_score"],
             "ci_deviation": comp_data.get("ci_deviation", 0),
         }
     except Exception:
+        logging.warning("标准头型对比生成失败", exc_info=True)
         result.standard_compare = None
 
     return result

@@ -1,7 +1,9 @@
-fastapi
-uvicorn
-python-multipart
-opencv-python-headless
-numpy
-pillow
-ultralytics
+fastapi>=0.104,<1.0
+uvicorn[standard]>=0.23,<1.0
+python-multipart>=0.0.6,<1.0
+opencv-python-headless>=4.8,<5.0
+numpy>=1.24,<2.0
+pillow>=10.0,<11.0
+ultralytics>=8.0.200,<9.0
+python-dotenv>=1.0,<2.0
+requests>=2.28,<3.0
