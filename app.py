@@ -86,6 +86,24 @@ def _side_analysis_text(flatness_score: float) -> str:
         return "后枕部扁平较明显，建议带照片给儿科医生参考。"
 
 
+def _ci_cvai_status(ci: float, cvai: float) -> dict:
+    """CI/CVAI 状态判断，供 _top_analysis_text 和 /analyze 响应共用"""
+    if 75 <= ci <= 85:
+        ci_status, ci_color = "在正常范围", "#16a34a"
+    elif ci > 85:
+        ci_status, ci_color = "偏扁头倾向", "#d97706"
+    else:
+        ci_status, ci_color = "偏长头倾向", "#d97706"
+    if cvai < 3.5:
+        cvai_status, cvai_color = "对称性良好", "#16a34a"
+    elif cvai < 6.25:
+        cvai_status, cvai_color = "轻微不对称", "#d97706"
+    else:
+        cvai_status, cvai_color = "不对称较明显", "#ef4444"
+    return {"ci_status": ci_status, "ci_color": ci_color,
+            "cvai_status": cvai_status, "cvai_color": cvai_color}
+
+
 # ── 生命周期 ────────────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -197,22 +215,10 @@ async def analyze(
         "head_circumference_mm": m.head_circumference_mm, "ci": m.ci, "cvai": m.cvai,
         "cva_mm": m.cva_mm, "severity": m.severity.value, "confidence": m.confidence}
     top_analysis = _top_analysis_text(top_data)
-    # CI/CVAI 状态 (供前端直接使用)
-    ci = m.ci
-    if 75 <= ci <= 85:
-        ci_status, ci_color = "在正常范围", "#16a34a"
-    elif ci > 85:
-        ci_status, ci_color = "偏扁头倾向", "#d97706"
-    else:
-        ci_status, ci_color = "偏长头倾向", "#d97706"
-
-    cvai = m.cvai
-    if cvai < 3.5:
-        cvai_status, cvai_color = "对称性良好", "#16a34a"
-    elif cvai < 6.25:
-        cvai_status, cvai_color = "轻微不对称", "#d97706"
-    else:
-        cvai_status, cvai_color = "不对称较明显", "#ef4444"
+    # CI/CVAI 状态 (共用 _ci_cvai_status 避免阈值重复)
+    st = _ci_cvai_status(m.ci, m.cvai)
+    ci_status, ci_color = st["ci_status"], st["ci_color"]
+    cvai_status, cvai_color = st["cvai_status"], st["cvai_color"]
 
     has_ref = any("检测到参照物" in s for s in result.processing_steps)
     has_guide = any("引导框" in s for s in result.processing_steps)

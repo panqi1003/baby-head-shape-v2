@@ -8,6 +8,7 @@ Page({
     useReference: true,
     useAI: true,
     analyzing: false,
+    stepText: '',
     photoType: '',
     hasReference: false,
     refChecked: false,
@@ -232,8 +233,8 @@ Page({
             that.step3CombinedAnalysis()
           }
         } catch (e) {
-          that.setData({ analyzing: false })
-          wx.showToast({ title: '侧面分析响应异常，请重试', icon: 'none', duration: 3000 })
+          wx.showToast({ title: '侧面响应异常，已跳过', icon: 'none', duration: 2000 })
+          that.step3CombinedAnalysis()
         }
       },
       fail() {
