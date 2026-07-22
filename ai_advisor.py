@@ -59,13 +59,13 @@ def _build_prompt(
 """
         gap_keys = ['gap_max', 'gap_avg', 'gap_top', 'gap_mid', 'gap_bot']
         if any(k in side_measurements for k in gap_keys):
-            prompt += f"""- 后枕弧度对比间隙 (白弧与实测绿线的差异, 单位像素):
-  最大间隙: {side_measurements.get('gap_max', 'N/A')}
-  平均间隙: {side_measurements.get('gap_avg', 'N/A')}
-  顶部间隙: {side_measurements.get('gap_top', 'N/A')}
-  中部间隙: {side_measurements.get('gap_mid', 'N/A')}
-  底部间隙: {side_measurements.get('gap_bot', 'N/A')}
-  (间隙越大说明该区域越扁平, 顶部=头顶方向, 底部=颈部方向)
+            prompt += f"""- 后枕弧度贴合度 (绿线相对白弧的位置, 正=绿线在白弧外侧凸出, 负=绿线在白弧内侧凹陷, 单位像素):
+  最凸出点: {side_measurements.get('gap_max', 'N/A')} (正值, 通常在后枕上缘或下缘圆润处)
+  平均偏差: {side_measurements.get('gap_avg', 'N/A')} (负值说明整体内收偏扁平)
+  顶部段: {side_measurements.get('gap_top', 'N/A')} (头顶方向: 正=圆润 负=扁平)
+  中部段: {side_measurements.get('gap_mid', 'N/A')} (后枕正中央: 正=圆润 负=扁平)
+  底部段: {side_measurements.get('gap_bot', 'N/A')} (颈部方向: 正=圆润 负=扁平)
+  (posterior_flatness 是 0-1 整体评分, 上述贴合度是分段细节: 负值越大越扁平, 正值越大越圆润)
 """
     else:
         prompt += """
