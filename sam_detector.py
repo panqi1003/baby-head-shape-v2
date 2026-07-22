@@ -6,17 +6,21 @@ SAM 零样本头部检测
 
 import cv2
 import numpy as np
+import threading
 import math
 from typing import Optional, Tuple
 
 _sam_model = None
+_SAM_LOCK = threading.Lock()
 
 
 def _get_model():
     global _sam_model
     if _sam_model is None:
-        from ultralytics import SAM
-        _sam_model = SAM('mobile_sam.pt')
+        with _SAM_LOCK:
+            if _sam_model is None:
+                from ultralytics import SAM
+                _sam_model = SAM('mobile_sam.pt')
     return _sam_model
 
 

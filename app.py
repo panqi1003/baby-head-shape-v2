@@ -11,6 +11,7 @@ import time
 import numpy as np
 from pathlib import Path
 from typing import Optional, Dict
+from cachetools import TTLCache
 from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -43,14 +44,13 @@ from head_analyzer import analyze_head_shape, COIN_DIAMETER_MM
 from ai_advisor import analyze_with_deepseek, generate_fallback_advice
 
 # ── 简单速率限制 ────────────────────────────────────────
-_rate_limits: Dict[str, list] = {}
+_rate_limits = TTLCache(maxsize=10000, ttl=RATE_LIMIT_WINDOW)
 
 def _check_rate_limit(client_ip: str) -> bool:
     now = time.time()
-    window_start = now - RATE_LIMIT_WINDOW
     if client_ip not in _rate_limits:
         _rate_limits[client_ip] = []
-    _rate_limits[client_ip] = [t for t in _rate_limits[client_ip] if t > window_start]
+    _rate_limits[client_ip] = [t for t in _rate_limits[client_ip] if t > now - RATE_LIMIT_WINDOW]
     if len(_rate_limits[client_ip]) >= RATE_LIMIT_MAX:
         return False
     _rate_limits[client_ip].append(now)
@@ -129,7 +129,7 @@ app.add_middleware(
 async def auth_middleware(request: Request, call_next):
     if not AUTH_REQUIRED:
         return await call_next(request)
-    if request.url.path.startswith("/analyze") or request.url.path.startswith("/ai_analysis"):
+    if request.url.path.startswith(("/analyze", "/ai_analysis")) or request.url.path.startswith("/ai_analysis"):
         if not API_SECRET_KEY:
             return JSONResponse(
                 {"detail": "Server not configured: API_SECRET_KEY missing. Set it in .env or environment."},
@@ -143,7 +143,7 @@ async def auth_middleware(request: Request, call_next):
 # ── 限流 ────────────────────────────────────────────────
 @app.middleware("http")
 async def rate_limit_middleware(request: Request, call_next):
-    if request.url.path.startswith("/analyze"):
+    if request.url.path.startswith(("/analyze", "/ai_analysis")):
         client_ip = request.client.host if request.client else "unknown"
         if not _check_rate_limit(client_ip):
             return JSONResponse({"detail": "请求过于频繁，请稍后再试"}, status_code=429)
