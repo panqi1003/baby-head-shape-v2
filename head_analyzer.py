@@ -812,11 +812,12 @@ def generate_advice(meas: HeadMeasurements) -> dict:
 def _draw_annotations(image: np.ndarray, contour: np.ndarray,
                        ellipse: Tuple, coin_info: Optional[Tuple],
                        measurements: HeadMeasurements,
+                       center: Tuple[float, float],
                        angle_deg: float) -> np.ndarray:
     """在图像上叠加分析标注"""
     annotated = image.copy()
     h, w = annotated.shape[:2]
-    cx, cy = int(ellipse[0][0]), int(ellipse[0][1])
+    cx, cy = int(center[0]), int(center[1])
 
     GREEN = (0, 200, 80)
     BLUE = (220, 120, 0)
@@ -1032,7 +1033,7 @@ def analyze_head_shape(
 
     # Step 9: 标注图
     annotated = _draw_annotations(image, head_contour, ellipse, coin_info,
-                                   measurements, angle_deg)
+                                   measurements, (cx, cy), angle_deg)
 
     result.success = True
     result.measurements = measurements
