@@ -40,8 +40,8 @@ AUTH_REQUIRED = os.environ.get("AUTH_REQUIRED", "true").lower() not in ("false",
 RATE_LIMIT_WINDOW = int(os.environ.get("RATE_LIMIT_WINDOW", "60"))
 RATE_LIMIT_MAX = int(os.environ.get("RATE_LIMIT_MAX", "30"))
 
-from head_analyzer import analyze_head_shape, COIN_DIAMETER_MM
-from ai_advisor import analyze_with_deepseek, generate_fallback_advice
+from shared.head_analyzer import analyze_head_shape, COIN_DIAMETER_MM
+from shared.ai_advisor import analyze_with_deepseek, generate_fallback_advice
 
 # ── 简单速率限制 ────────────────────────────────────────
 _rate_limits = TTLCache(maxsize=10000, ttl=RATE_LIMIT_WINDOW)
@@ -245,7 +245,7 @@ async def analyze_side(image: UploadFile = File(...), guide_frame: bool = Form(F
     if img is None:
         return JSONResponse({"success": False, "error": "无法解析侧面图，请确认上传了有效的图片"}, status_code=400)
     try:
-        from side_analyzer import analyze_side_profile
+        from shared.side_analyzer import analyze_side_profile
         result = analyze_side_profile(img)
         if not result:
             return {"success": False, "error": "侧面分析失败，请重试"}
@@ -258,7 +258,7 @@ async def analyze_side(image: UploadFile = File(...), guide_frame: bool = Form(F
             _, sb = cv2.imencode('.jpg', sa, [cv2.IMWRITE_JPEG_QUALITY, 85])
             side_b64 = base64.b64encode(sb).decode('utf-8')
             try:
-                from standard_compare import draw_comparison
+                from shared.standard_compare import draw_comparison
                 comp_img, comp_data = draw_comparison(img, contour, view='side', side_result=result, side=side or 'left')
                 _, cb = cv2.imencode('.jpg', comp_img, [cv2.IMWRITE_JPEG_QUALITY, 85])
                 compare_b64 = base64.b64encode(cb).decode('utf-8')
@@ -287,7 +287,7 @@ async def check_reference(image: UploadFile = File(...)):
     img = _read_img(image)
     if img is None:
         return {"has_reference": False}
-    from head_analyzer import detect_coin, detect_skin_adaptive, clean_mask
+    from shared.head_analyzer import detect_coin, detect_skin_adaptive, clean_mask
     try:
         skin = detect_skin_adaptive(img)
         skin = clean_mask(skin)

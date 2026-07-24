@@ -19,7 +19,7 @@ def analyze_side_profile(image: np.ndarray) -> Optional[Dict]:
     """
     h, w = image.shape[:2]
 
-    from sam_detector import detect_head
+    from shared.sam_detector import detect_head
 
     # 侧面图不需要 guide_mask — SAM点提示本身足够
     sam_result = detect_head(image, view='side')

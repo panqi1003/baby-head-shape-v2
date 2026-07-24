@@ -20,7 +20,7 @@ import logging
 from dataclasses import dataclass, field
 
 # SAM 检测 (提前导入，避免函数体内延迟 import)
-from sam_detector import detect_head as detect_head_sam, create_guide_mask
+from shared.sam_detector import detect_head as detect_head_sam, create_guide_mask
 from typing import Optional, Tuple, List, Dict
 from enum import Enum
 
@@ -1041,7 +1041,7 @@ def analyze_head_shape(
 
     # 标准头型对比
     try:
-        from standard_compare import draw_comparison
+        from shared.standard_compare import draw_comparison
         comp_img, comp_data = draw_comparison(image, head_contour, view='top', age_months=age_months)
         _, comp_buf = cv2.imencode('.jpg', comp_img, [cv2.IMWRITE_JPEG_QUALITY, 85])
         result.standard_compare = {
