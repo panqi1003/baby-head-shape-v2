@@ -5,6 +5,7 @@
 
 import json
 import sys
+sys.path.insert(0, ".")
 import requests
 import cv2
 import numpy as np

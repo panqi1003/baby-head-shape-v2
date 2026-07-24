@@ -181,7 +181,7 @@ def make_test_case(case_id, variant):
 
 def run_top_analysis(img):
     """跑俯视图分析，返回 (result, annotated_image_base64)"""
-    from head_analyzer import analyze_head_shape
+    from shared.head_analyzer import analyze_head_shape
     result = analyze_head_shape(img, reference_mm=25.0,
                                 auto_detect_reference=True, use_reference=True,
                                 guide_frame=True, age_months=3)
@@ -198,7 +198,7 @@ def run_top_analysis(img):
 
 def run_side_analysis(img):
     """跑侧面分析，返回 (result, annotated_image_bytes)"""
-    from side_analyzer import analyze_side_profile
+    from shared.side_analyzer import analyze_side_profile
     result = analyze_side_profile(img)
     if result:
         contour_list = result.get('_head_contour')
@@ -211,7 +211,7 @@ def run_side_analysis(img):
             _, side_buf = cv2.imencode('.jpg', sa, [cv2.IMWRITE_JPEG_QUALITY, 85])
             # Snake对比 (与 app.py 相同路径: draw_comparison 只调一次)
             try:
-                from standard_compare import draw_comparison
+                from shared.standard_compare import draw_comparison
                 _, comp_data = draw_comparison(img, contour, view='side', side_result=result)
                 similarity = comp_data.get('similarity_score')
             except Exception:
@@ -329,7 +329,7 @@ def run_all_tests(quick=False, with_mimo=True):
 
     # ---- 俯视图测试 ----
     print("\n[俯视图测试]")
-    from sam_detector import detect_head, create_guide_mask
+    from shared.sam_detector import detect_head, create_guide_mask
 
     for i, variant in enumerate(VARIANTS_TOP):
         case_id = f"top_{variant}"

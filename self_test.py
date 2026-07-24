@@ -37,7 +37,7 @@ def make_side_synthetic():
 
 def test_sam_top():
     """测试俯视图 SAM 检测"""
-    from sam_detector import detect_head
+    from shared.sam_detector import detect_head
     img = make_top_synthetic()
     result = detect_head(img, view='top')
     if result is None:
@@ -53,7 +53,7 @@ def test_sam_top():
 
 def test_sam_side():
     """测试侧面图 SAM 检测"""
-    from sam_detector import detect_head
+    from shared.sam_detector import detect_head
     img = make_side_synthetic()
     result = detect_head(img, view='side')
     if result is None:
@@ -74,7 +74,7 @@ def test_sam_side():
 
 def test_head_analyzer():
     """测试俯视图分析全流程"""
-    from head_analyzer import analyze_head_shape
+    from shared.head_analyzer import analyze_head_shape
     img = make_top_synthetic()
     result = analyze_head_shape(img, reference_mm=25.0,
                                 auto_detect_reference=True, use_reference=True,
@@ -92,7 +92,7 @@ def test_head_analyzer():
 
 def test_side_analyzer():
     """测试侧面图分析全流程"""
-    from side_analyzer import analyze_side_profile
+    from shared.side_analyzer import analyze_side_profile
     img = make_side_synthetic()
     result = analyze_side_profile(img)
     if result is None:
@@ -109,7 +109,7 @@ def test_side_analyzer():
 
 def test_ai_advisor():
     """测试 AI 分析 (规则引擎回退)"""
-    from ai_advisor import generate_fallback_advice, analyze_with_deepseek
+    from shared.ai_advisor import generate_fallback_advice, analyze_with_deepseek
     top_data = {"ci": 78.5, "cvai": 2.1, "cva_mm": 2.3, "severity": "normal",
                 "head_length_mm": 135, "head_width_mm": 106}
     side_data = {"posterior_flatness": 0.12, "flatness_category": "正常圆润"}
@@ -126,9 +126,9 @@ def test_ai_advisor():
 def test_full_pipeline():
     """端到端测试: 模拟小程序三个阶段的调用"""
     print("\n[端到端流程模拟]")
-    from head_analyzer import analyze_head_shape
-    from side_analyzer import analyze_side_profile
-    from ai_advisor import generate_fallback_advice
+    from shared.head_analyzer import analyze_head_shape
+    from shared.side_analyzer import analyze_side_profile
+    from shared.ai_advisor import generate_fallback_advice
 
     # 阶段1: 俯视图
     top_img = make_top_synthetic()
@@ -157,8 +157,8 @@ def test_full_pipeline():
 
 def test_edge_cases():
     """边界测试: 极小图/纯黑图应优雅失败不崩溃"""
-    from head_analyzer import analyze_head_shape
-    from side_analyzer import analyze_side_profile
+    from shared.head_analyzer import analyze_head_shape
+    from shared.side_analyzer import analyze_side_profile
 
     results = []
 

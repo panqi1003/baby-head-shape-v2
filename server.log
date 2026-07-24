@@ -1,0 +1,43 @@
+INFO:     Started server process [18420]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:64039 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50509 - "POST /check_reference HTTP/1.1" 200 OK
+
+0: 1024x1024 1 0, 544.9ms
+Speed: 17.2ms preprocess, 544.9ms inference, 2.2ms postprocess per image at shape (1, 3, 1024, 1024)
+INFO:     127.0.0.1:50509 - "POST /analyze HTTP/1.1" 200 OK
+
+0: 1024x1024 1 0, 493.0ms
+Speed: 6.7ms preprocess, 493.0ms inference, 1.2ms postprocess per image at shape (1, 3, 1024, 1024)
+INFO:     127.0.0.1:50509 - "POST /analyze_side HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60035 - "POST /ai_analysis HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53588 - "POST /check_reference HTTP/1.1" 200 OK
+
+0: 1024x1024 1 0, 490.9ms
+Speed: 4.2ms preprocess, 490.9ms inference, 1.9ms postprocess per image at shape (1, 3, 1024, 1024)
+INFO:     127.0.0.1:52855 - "POST /analyze HTTP/1.1" 200 OK
+
+0: 1024x1024 1 0, 494.0ms
+Speed: 4.1ms preprocess, 494.0ms inference, 1.9ms postprocess per image at shape (1, 3, 1024, 1024)
+INFO:     127.0.0.1:52855 - "POST /analyze_side HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61979 - "POST /ai_analysis HTTP/1.1" 200 OK
+
+0: 1024x1024 1 0, 505.5ms
+Speed: 3.7ms preprocess, 505.5ms inference, 2.4ms postprocess per image at shape (1, 3, 1024, 1024)
+INFO:     127.0.0.1:55498 - "POST /analyze HTTP/1.1" 200 OK
+
+0: 1024x1024 1 0, 520.2ms
+Speed: 7.6ms preprocess, 520.2ms inference, 1.0ms postprocess per image at shape (1, 3, 1024, 1024)
+INFO:     127.0.0.1:55498 - "POST /analyze_side HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63497 - "POST /ai_analysis HTTP/1.1" 200 OK
+
+0: 1024x1024 1 0, 521.5ms
+Speed: 4.6ms preprocess, 521.5ms inference, 1.9ms postprocess per image at shape (1, 3, 1024, 1024)
+INFO:     127.0.0.1:56617 - "POST /analyze HTTP/1.1" 200 OK
+
+0: 1024x1024 1 0, 521.7ms
+Speed: 10.2ms preprocess, 521.7ms inference, 1.2ms postprocess per image at shape (1, 3, 1024, 1024)
+INFO:     127.0.0.1:56617 - "POST /analyze_side HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59115 - "POST /ai_analysis HTTP/1.1" 200 OK

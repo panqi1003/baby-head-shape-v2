@@ -6,6 +6,7 @@ SAM 零样本头部检测
 
 import cv2
 import numpy as np
+import os
 import threading
 import math
 from typing import Optional, Tuple
@@ -20,7 +21,7 @@ def _get_model():
         with _SAM_LOCK:
             if _sam_model is None:
                 from ultralytics import SAM
-                _sam_model = SAM('mobile_sam.pt')
+                _sam_model = SAM(os.path.join(os.path.dirname(__file__), 'mobile_sam.pt'))
     return _sam_model
 
 
