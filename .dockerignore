@@ -1,0 +1,32 @@
+# 测试文件
+test_*
+tests/
+self_test.py
+test_runner.py
+test_miniprogram_flow.py
+snake_v1_backup.py
+
+# 日志
+server.log
+
+# 图片（不需要）
+*.jpg
+*.png
+!shared/标准头型/*.jpg
+!shared/标准头型/*.png
+
+# Python 缓存
+__pycache__/
+*.pyc
+
+# Git
+.git/
+.gitignore
+
+# 前端（不打包进后端镜像）
+miniprogram/
+
+# 临时文件
+check.json
+resp.json
+.DS_Store
